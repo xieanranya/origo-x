@@ -69,18 +69,23 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   }
 
   Future<void> _restorePreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _layout = prefs.getString(_prefLayoutKey) == 'grid'
-          ? ShelfLayout.grid
-          : ShelfLayout.list;
-      final sortName = prefs.getString(_prefSortKey);
-      _sort = ShelfSort.values.firstWhere(
-        (value) => value.name == sortName,
-        orElse: () => ShelfSort.importDate,
-      );
-    });
+    // 测试环境没有平台通道，getInstance 会抛/挂：兜底用默认布局与排序
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _layout = prefs.getString(_prefLayoutKey) == 'grid'
+            ? ShelfLayout.grid
+            : ShelfLayout.list;
+        final sortName = prefs.getString(_prefSortKey);
+        _sort = ShelfSort.values.firstWhere(
+          (value) => value.name == sortName,
+          orElse: () => ShelfSort.importDate,
+        );
+      });
+    } catch (_) {
+      // 保持默认值
+    }
   }
 
   Future<void> _saveLayout(ShelfLayout layout) async {
