@@ -262,6 +262,7 @@ Future<void> _createLocalSchema(Database database) async {
       table_of_contents TEXT,
       cover_image_path TEXT,
       text_encoding TEXT,
+      last_read_time INTEGER,
       last_canonical_locator TEXT,
       last_rendered_locator TEXT,
       layout_signature TEXT
