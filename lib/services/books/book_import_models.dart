@@ -100,7 +100,11 @@ class BookImportFailure implements Exception {
   final Object? cause;
 
   @override
-  String toString() => 'BookImportFailure($code): $message';
+  String toString() {
+    final base = 'BookImportFailure($code): $message';
+    if (cause == null) return base;
+    return '$base | cause: $cause';
+  }
 }
 
 class BookImportResult {
