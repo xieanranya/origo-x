@@ -1,0 +1,96 @@
+name: Build Mobile (iOS + Android)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'ios/**'
+      - 'android/**'
+      - 'l10n.yaml'
+      - 'assets/**'
+      - 'shaders/**'
+      - '.github/workflows/build-mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    name: Flutter Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.4'
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter gen-l10n
+      - run: flutter analyze --no-pub
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.4'
+      - name: Pub get & l10n
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter gen-l10n
+      - name: Build iOS (unsigned)
+        run: flutter build ios --release --no-codesign
+      - name: Package IPA
+        id: package
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | tr -d '\r')
+          TAG="v${VERSION%%+*}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          mkdir -p build/Payload
+          cp -R build/ios/iphoneos/Runner.app build/Payload/
+          (cd build && zip -qr "app-ios-$TAG.ipa" Payload)
+          ls -lh "build/app-ios-$TAG.ipa"
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ios-${{ steps.package.outputs.tag }}
+          path: build/app-ios-*.ipa
+          retention-days: 30
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.package.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/app-ios-*.ipa --clobber
+          else
+            gh release create "$TAG" build/app-ios-*.ipa --title "开元阅读 $TAG" --notes "iOS 未签名 IPA，TrollStore / AltStore / Sideloadly 侧载安装。"
+          fi
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.4'
+      - run: |
+          flutter pub get --enforce-lockfile
+          flutter gen-l10n
+      - name: Build APK
+        run: flutter build apk --release
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
