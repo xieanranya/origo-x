@@ -19,7 +19,7 @@ class DatabaseService {
 
   static final DatabaseService _instance = DatabaseService._internal();
   static const String _dbName = 'xxread_v2.db';
-  static const int _dbVersion = 27;
+  static const int _dbVersion = 28;
   static Database? _database;
   static Future<Database>? _openingDatabase;
 
@@ -93,6 +93,7 @@ class DatabaseService {
           table_of_contents TEXT,
           cover_image_path TEXT,
           text_encoding TEXT,
+          last_read_time INTEGER,
           last_canonical_locator TEXT,
           last_rendered_locator TEXT,
           layout_signature TEXT
@@ -234,6 +235,7 @@ Future<void> upgradeLocalDatabaseSchema(Database db) async {
     'table_of_contents': 'TEXT',
     'cover_image_path': 'TEXT',
     'text_encoding': 'TEXT',
+    'last_read_time': 'INTEGER',
     'last_canonical_locator': 'TEXT',
     'last_rendered_locator': 'TEXT',
     'layout_signature': 'TEXT',

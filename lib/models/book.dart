@@ -24,6 +24,10 @@ class Book {
   final String? coverImagePath; // 运行时封面路径；数据库中受管封面使用相对路径
   final String? textEncoding; // TXT编码（导入时自动检测的结果）
 
+  /// 最近一次阅读/保存进度的时间（毫秒时间戳）。
+  /// null 表示导入后还没打开过。用于书架「最近阅读」排序。
+  final int? lastReadTime;
+
   // ---- CanonicalLocator 双轨定位字段 ----
 
   /// 上次阅读位置的 CanonicalLocator JSON 序列化。
@@ -71,6 +75,7 @@ class Book {
     this.tableOfContents,
     this.coverImagePath,
     this.textEncoding,
+    this.lastReadTime,
     this.lastCanonicalLocator,
     this.lastRenderedLocator,
     this.layoutSignature,
@@ -96,6 +101,7 @@ class Book {
       'table_of_contents': tableOfContents,
       'cover_image_path': coverImagePath,
       'text_encoding': textEncoding,
+      'last_read_time': lastReadTime,
       'last_canonical_locator': lastCanonicalLocator,
       'last_rendered_locator': lastRenderedLocator,
       'layout_signature': layoutSignature,
@@ -120,6 +126,7 @@ class Book {
       tableOfContents: map['table_of_contents'],
       coverImagePath: map['cover_image_path'],
       textEncoding: map['text_encoding'],
+      lastReadTime: map['last_read_time'],
       lastCanonicalLocator: map['last_canonical_locator'],
       lastRenderedLocator: map['last_rendered_locator'],
       layoutSignature: map['layout_signature'],
@@ -143,6 +150,7 @@ class Book {
     String? tableOfContents,
     String? coverImagePath,
     String? textEncoding,
+    int? lastReadTime,
     String? lastCanonicalLocator,
     String? lastRenderedLocator,
     String? layoutSignature,
@@ -164,6 +172,7 @@ class Book {
       tableOfContents: tableOfContents ?? this.tableOfContents,
       coverImagePath: coverImagePath ?? this.coverImagePath,
       textEncoding: textEncoding ?? this.textEncoding,
+      lastReadTime: lastReadTime ?? this.lastReadTime,
       lastCanonicalLocator: lastCanonicalLocator ?? this.lastCanonicalLocator,
       lastRenderedLocator: lastRenderedLocator ?? this.lastRenderedLocator,
       layoutSignature: layoutSignature ?? this.layoutSignature,

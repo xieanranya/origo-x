@@ -52,6 +52,7 @@ class BookDao implements BookImportStore {
     'content_hash',
     'cover_image_path',
     'text_encoding',
+    'last_read_time',
     'last_canonical_locator',
     'last_rendered_locator',
     'layout_signature',
@@ -140,7 +141,11 @@ class BookDao implements BookImportStore {
   }) async {
     try {
       final db = await _databaseProvider();
-      final values = <String, Object?>{'currentPage': currentPage};
+      final values = <String, Object?>{
+        'currentPage': currentPage,
+        // 最近阅读排序的依据：每次保存进度都刷新
+        'last_read_time': DateTime.now().millisecondsSinceEpoch,
+      };
       if (readingProgress != null) {
         values['reading_progress'] = readingProgress.clamp(0.0, 1.0);
       }
