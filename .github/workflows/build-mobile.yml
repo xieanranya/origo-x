@@ -24,7 +24,7 @@ jobs:
     name: Flutter Analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.4'
@@ -37,7 +37,7 @@ jobs:
     runs-on: macos-14
     needs: analyze
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.4'
@@ -58,7 +58,7 @@ jobs:
           (cd build && zip -qr "app-ios-$TAG.ipa" Payload)
           ls -lh "build/app-ios-$TAG.ipa"
       - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: app-ios-${{ steps.package.outputs.tag }}
           path: build/app-ios-*.ipa
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: analyze
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.4'
@@ -89,7 +89,7 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: app-android
           path: build/app/outputs/flutter-apk/app-release.apk
