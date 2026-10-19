@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'lib/**'
+      - 'test/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - 'ios/**'
