@@ -278,15 +278,11 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
           children: [
             TextField(
               controller: titleController,
-              decoration: InputDecoration(
-                labelText: _text('书名', 'Title'),
-              ),
+              decoration: InputDecoration(labelText: _text('书名', 'Title')),
             ),
             TextField(
               controller: authorController,
-              decoration: InputDecoration(
-                labelText: _text('作者', 'Author'),
-              ),
+              decoration: InputDecoration(labelText: _text('作者', 'Author')),
             ),
           ],
         ),
@@ -437,21 +433,23 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
             initialValue: _sort,
             onSelected: _saveSort,
             itemBuilder: (context) => ShelfSort.values
-                .map((sort) => PopupMenuItem(
-                      value: sort,
-                      child: Row(
-                        children: [
-                          Icon(
-                            _sort == sort
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(_sortLabel(sort)),
-                        ],
-                      ),
-                    ))
+                .map(
+                  (sort) => PopupMenuItem(
+                    value: sort,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _sort == sort
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_sortLabel(sort)),
+                      ],
+                    ),
+                  ),
+                )
                 .toList(),
           ),
           IconButton(
@@ -664,7 +662,9 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.error,
-                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(8),
+                            ),
                           ),
                           child: Text(
                             _text('未读', 'New'),
@@ -704,8 +704,8 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
               Text(
                 '$progress%',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
