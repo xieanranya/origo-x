@@ -80,10 +80,12 @@ def check(paths: list[str], manifest: dict) -> list[str]:
         for label, pattern in CONTENT_CHECKS.items():
             if pattern.search(content):
                 findings.append(f'{name}: {label}')
+        # 下游品牌适配：com.yidu.reader 是本 fork 的产品身份（非上游维护者身份），
+        # 与 org.example.xxread 的中性占位并列允许。
         if path.suffix in {'.pbxproj', '.xcconfig', '.kts'}:
             identifiers = re.findall(r'\b(?:PRODUCT_BUNDLE_IDENTIFIER|applicationId|namespace)\s*=\s*"?([^"\s;]+)', content)
             for identifier in identifiers:
-                if identifier not in {'org.example.xxread', 'org.example.xxread.RunnerTests'}:
+                if identifier not in {'org.example.xxread', 'org.example.xxread.RunnerTests', 'com.yidu.reader', 'com.yidu.reader.RunnerTests'}:
                     findings.append(f'{name}: non-neutral application identity')
         if path.suffix == '.dart':
             for label, pattern in DART_CHECKS.items():

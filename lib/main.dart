@@ -35,7 +35,7 @@ class LocalReaderApp extends StatelessWidget {
     ],
     child: Consumer2<ThemeNotifier, AppSettingsNotifier>(
       builder: (_, theme, settings, _) => MaterialApp(
-        title: 'Origo X Local Reader',
+        title: '易读',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorSchemeSeed: theme.accentColor,

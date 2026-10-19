@@ -94,3 +94,13 @@ jobs:
           name: app-android
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+      - name: Publish APK to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | tr -d '\r')
+          TAG="v${VERSION%%+*}"
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          # 建库不存在则创建，已存在则追加资源（与 iOS job 容错竞争）
+          gh release create "$TAG" "$APK" --title "易读 $TAG" --notes "本地小说阅读器：iOS 未签名 IPA + 安卓 APK。iOS 用 TrollStore / AltStore / Sideloadly 侧载。" \
+            || gh release upload "$TAG" "$APK" --clobber
