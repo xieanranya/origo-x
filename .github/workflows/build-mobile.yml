@@ -35,18 +35,17 @@ jobs:
         run: |
           dart format --output=none --set-exit-if-changed lib test
         continue-on-error: true
-      - name: Push format diff (on failure)
+      - name: Push formatted files (on failure)
         if: steps.fmt.outcome == 'failure'
         run: |
-          dart format --output=diff lib test > /tmp/fmt.diff || true
+          dart format lib test
           git config user.email "ci@local"
           git config user.name "ci"
           git checkout -B format-diff
-          cp /tmp/fmt.diff format-diff.txt
-          git add format-diff.txt
-          git commit -m "ci: dart format diff"
+          git add lib test
+          git commit -m "ci: dart format"
           git push -f origin format-diff
-          echo "===== dart format diff 已推到 format-diff 分支 ====="
+          echo "===== 格式化后的 lib/test 已推到 format-diff 分支 ====="
       - name: Fail if format check failed
         if: steps.fmt.outcome == 'failure'
         run: exit 1
