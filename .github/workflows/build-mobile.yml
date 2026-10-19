@@ -30,6 +30,26 @@ jobs:
           flutter-version: '3.44.4'
       - run: flutter pub get --enforce-lockfile
       - run: flutter gen-l10n
+      - name: Dart format check（对齐上游 CI）
+        id: fmt
+        run: |
+          dart format --output=none --set-exit-if-changed lib test
+        continue-on-error: true
+      - name: Push format diff (on failure)
+        if: steps.fmt.outcome == 'failure'
+        run: |
+          dart format --output=diff lib test > /tmp/fmt.diff || true
+          git config user.email "ci@local"
+          git config user.name "ci"
+          git checkout -B format-diff
+          cp /tmp/fmt.diff format-diff.txt
+          git add format-diff.txt
+          git commit -m "ci: dart format diff"
+          git push -f origin format-diff
+          echo "===== dart format diff 已推到 format-diff 分支 ====="
+      - name: Fail if format check failed
+        if: steps.fmt.outcome == 'failure'
+        run: exit 1
       - run: flutter analyze --no-pub
 
   build-ios:
@@ -71,7 +91,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/app-ios-*.ipa --clobber
           else
-            gh release create "$TAG" build/app-ios-*.ipa --title "开元阅读 $TAG" --notes "iOS 未签名 IPA，TrollStore / AltStore / Sideloadly 侧载安装。"
+            gh release create "$TAG" build/app-ios-*.ipa --title "易读 $TAG" --notes "iOS 未签名 IPA，TrollStore / AltStore / Sideloadly 侧载安装。"
           fi
 
   build-android:

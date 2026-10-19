@@ -337,6 +337,7 @@
     "test/reader_vertical_paging_test.dart",
     "test/streaming_txt_index_test.dart",
     "test/support/public_reader_test_utils.dart",
+    "tool/make_yidu_icon.py",
     "tool/check_public_source.py",
     "tool/generate_reader_indent_font.py",
     "tool/test_public_source_policy.py",
