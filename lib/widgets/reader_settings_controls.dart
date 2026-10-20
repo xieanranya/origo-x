@@ -1400,19 +1400,13 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
 
   IconData _iconFor(String id) => switch (id) {
     ReaderThemes.systemId => Icons.brightness_auto_rounded,
-    'yekong_light' => Icons.wb_twilight_rounded,
-    'yekong_dark' => Icons.nightlight_round,
-    'shuimo_light' => Icons.spa_rounded,
-    'shuimo_dark' => Icons.spa_rounded,
-    'xuanzhi_light' => Icons.park_rounded,
-    'xuanzhi_dark' => Icons.park_rounded,
+    'xian_tan_light' => Icons.landscape_outlined,
+    'xian_tan_dark' => Icons.landscape_rounded,
     'pureBlack' => Icons.brightness_1_rounded,
     'night' => Icons.dark_mode_rounded,
     'navy' => Icons.nights_stay_rounded,
     'parchment' => Icons.auto_stories_rounded,
-    'green' => Icons.eco_rounded,
     'rose' => Icons.local_florist_rounded,
-    'mist' => Icons.cloud_outlined,
     _ => Icons.light_mode_rounded,
   };
 }

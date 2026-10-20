@@ -344,116 +344,43 @@ class ReaderThemes {
     _themeOrder = resolveThemeOrder(themeIds, _customThemes);
   }
 
-  // ---- 内置水墨主题（带纸张底图，资源在 assets/reader_themes/）----
+  // ---- 内置主题：闲潭梦落花（纸张底图在 assets/reader_themes/）----
 
-  /// 夜色·月（日）
-  static const yekongLight = ReaderThemePalette(
-    id: 'yekong_light',
+  /// 闲潭梦落花（日）
+  static const xianTanLight = ReaderThemePalette(
+    id: 'xian_tan_light',
     brightness: Brightness.light,
-    background: Color(0xFFEEF2F6),
-    text: Color(0xFF232B36),
-    secondaryText: Color(0xFF6C737B),
-    surface: Color(0xFFE7EBEF),
-    controlBar: Color(0xFFE4EAF1),
-    controlFill: Color(0xFFCFD5DC),
-    accent: Color(0xFF3A5A80),
+    background: Color(0xFFF5F8F7),
+    text: Color(0xFF24332C),
+    secondaryText: Color(0xFF6F7A75),
+    surface: Color(0xFFEEF1F0),
+    controlBar: Color(0xFFEAF0EC),
+    controlFill: Color(0xFFD4DBD7),
+    accent: Color(0xFF4E7A66),
     onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFBDC4CC),
-    shadow: Color(0xFF232B36),
-    backgroundImagePath: 'assets/reader_themes/yekong_light.png',
+    border: Color(0xFFC2CAC6),
+    shadow: Color(0xFF24332C),
+    backgroundImagePath: 'assets/reader_themes/xian_tan_light.png',
     backgroundImageOpacity: 1.0,
   );
 
-  /// 夜色·月（夜）
-  static const yekongDark = ReaderThemePalette(
-    id: 'yekong_dark',
+  /// 闲潭梦落花（夜）
+  static const xianTanDark = ReaderThemePalette(
+    id: 'xian_tan_dark',
     brightness: Brightness.dark,
-    background: Color(0xFF0B1220),
-    text: Color(0xFFD6DEE8),
-    secondaryText: Color(0xFF8D95A0),
-    surface: Color(0xFF19202E),
-    controlBar: Color(0xFF131D2E),
-    controlFill: Color(0xFF36404F),
-    accent: Color(0xFF8FA9C9),
-    onAccent: Color(0xFF0B1220),
-    border: Color(0xFF464F5E),
-    shadow: Color(0xFFD6DEE8),
-    backgroundImagePath: 'assets/reader_themes/yekong_dark.png',
-    backgroundImageOpacity: 1.0,
-  );
-
-  /// 水墨·疏花（日）
-  static const shuimoLight = ReaderThemePalette(
-    id: 'shuimo_light',
-    brightness: Brightness.light,
-    background: Color(0xFFF2F2EF),
-    text: Color(0xFF2A2E2A),
-    secondaryText: Color(0xFF727571),
-    surface: Color(0xFFEBEBE8),
-    controlBar: Color(0xFFE7E9E4),
-    controlFill: Color(0xFFD2D4D0),
-    accent: Color(0xFF5A6B5F),
+    background: Color(0xFF101818),
+    text: Color(0xFFCFDBD6),
+    secondaryText: Color(0xFF8A9592),
+    surface: Color(0xFF1D2625),
+    controlBar: Color(0xFF172120),
+    controlFill: Color(0xFF384241),
+    accent: Color(0xFF7EA896),
     onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFC1C4BF),
-    shadow: Color(0xFF2A2E2A),
-    backgroundImagePath: 'assets/reader_themes/shuimo_light.png',
+    border: Color(0xFF47514F),
+    shadow: Color(0xFFCFDBD6),
+    backgroundImagePath: 'assets/reader_themes/xian_tan_dark.png',
     backgroundImageOpacity: 1.0,
   );
-
-  /// 水墨·疏花（夜）
-  static const shuimoDark = ReaderThemePalette(
-    id: 'shuimo_dark',
-    brightness: Brightness.dark,
-    background: Color(0xFF191C1B),
-    text: Color(0xFFCBD4CE),
-    secondaryText: Color(0xFF8B928E),
-    surface: Color(0xFF252928),
-    controlBar: Color(0xFF222724),
-    controlFill: Color(0xFF404643),
-    accent: Color(0xFF9BB3A5),
-    onAccent: Color(0xFF191C1B),
-    border: Color(0xFF4E5450),
-    shadow: Color(0xFFCBD4CE),
-    backgroundImagePath: 'assets/reader_themes/shuimo_dark.png',
-    backgroundImageOpacity: 1.0,
-  );
-
-  /// 宣纸·竹影（日）
-  static const xuanzhiLight = ReaderThemePalette(
-    id: 'xuanzhi_light',
-    brightness: Brightness.light,
-    background: Color(0xFFF5F0E0),
-    text: Color(0xFF2E2A20),
-    secondaryText: Color(0xFF767165),
-    surface: Color(0xFFEEE9D9),
-    controlBar: Color(0xFFECE5D2),
-    controlFill: Color(0xFFD7D0BE),
-    accent: Color(0xFF7A6A45),
-    onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFC6C0AE),
-    shadow: Color(0xFF2E2A20),
-    backgroundImagePath: 'assets/reader_themes/xuanzhi_light.png',
-    backgroundImageOpacity: 1.0,
-  );
-
-  /// 宣纸·竹影（夜）
-  static const xuanzhiDark = ReaderThemePalette(
-    id: 'xuanzhi_dark',
-    brightness: Brightness.dark,
-    background: Color(0xFF1D1B16),
-    text: Color(0xFFD8D0BD),
-    secondaryText: Color(0xFF958F81),
-    surface: Color(0xFF2A2822),
-    controlBar: Color(0xFF272318),
-    controlFill: Color(0xFF474236),
-    accent: Color(0xFFC0AA7C),
-    onAccent: Color(0xFF1D1B16),
-    border: Color(0xFF555043),
-    shadow: Color(0xFFD8D0BD),
-    backgroundImagePath: 'assets/reader_themes/xuanzhi_dark.png',
-    backgroundImageOpacity: 1.0,
-  );
-
   static const day = ReaderThemePalette(
     id: 'day',
     brightness: Brightness.light,
@@ -467,36 +394,6 @@ class ReaderThemes {
     onAccent: Color(0xFFFFFFFF),
     border: Color(0xFFD5D8DD),
     shadow: Color(0xFF202124),
-  );
-
-  static const mist = ReaderThemePalette(
-    id: 'mist',
-    brightness: Brightness.light,
-    background: Color(0xFFF3F5F7),
-    text: Color(0xFF27313A),
-    secondaryText: Color(0xFF65717C),
-    surface: Color(0xFFF9FAFB),
-    controlBar: Color(0xFFE8EDF1),
-    controlFill: Color(0xFFD8E0E7),
-    accent: Color(0xFF55758E),
-    onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFC3CDD5),
-    shadow: Color(0xFF23313D),
-  );
-
-  static const green = ReaderThemePalette(
-    id: 'green',
-    brightness: Brightness.light,
-    background: Color(0xFFE9F1E5),
-    text: Color(0xFF263126),
-    secondaryText: Color(0xFF5F6E5E),
-    surface: Color(0xFFF0F6ED),
-    controlBar: Color(0xFFDDE9D8),
-    controlFill: Color(0xFFC9DBC2),
-    accent: Color(0xFF527451),
-    onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFAFC2A9),
-    shadow: Color(0xFF213020),
   );
 
   static const rose = ReaderThemePalette(
@@ -578,19 +475,13 @@ class ReaderThemes {
   static const List<ReaderThemePalette> _concreteBuiltins =
       <ReaderThemePalette>[
         day,
-        mist,
-        green,
         rose,
         parchment,
         navy,
         night,
         pureBlack,
-        yekongLight,
-        yekongDark,
-        shuimoLight,
-        shuimoDark,
-        xuanzhiLight,
-        xuanzhiDark,
+        xianTanLight,
+        xianTanDark,
       ];
 
   static List<ReaderThemePalette> get all => <ReaderThemePalette>[
