@@ -193,11 +193,8 @@ class ReaderThemes {
   static ReaderThemePalette systemPalette({Brightness? platformBrightness}) {
     final isDark =
         (platformBrightness ??
-                WidgetsBinding
-                    .instance
-                    .platformDispatcher
-                    .platformBrightness) ==
-            Brightness.dark;
+            WidgetsBinding.instance.platformDispatcher.platformBrightness) ==
+        Brightness.dark;
     final source = _resolveConcrete(
       isDark ? _systemNightThemeId : _systemDayThemeId,
     );
