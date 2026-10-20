@@ -1,7 +1,7 @@
 name: xxread
 description: Local TXT and EPUB reader source edition.
 publish_to: none
-version: 2.7.7+261020005
+version: 2.7.8+261020006
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/reader/reader_annotation.dart';
 import '../models/book_note.dart';
@@ -201,12 +202,14 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
     with SingleTickerProviderStateMixin {
   static const _catalogTopPadding = 4.0;
   static const _navigationResolveDelay = Duration(milliseconds: 300);
+  static const _tocOrderPrefKey = 'reader_toc_reverse_order_v1';
 
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _chapterScrollController = ScrollController();
   final Set<int> _collapsedChapterPositions = <int>{};
   String _query = '';
+  bool _reverseOrder = false;
 
   late ReaderNavigationCatalog _catalog;
   List<int>? _visibleCache;
@@ -231,6 +234,7 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
     _resolvedNavigationPosition = widget.currentNavigationPosition;
     _navigationPositionResolved =
         widget.resolveCurrentNavigationPosition == null;
+    _restoreTocOrder();
     _scheduleResolveAndScroll(animate: false);
   }
 
@@ -300,7 +304,11 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
   }
 
   List<int> get _visibleChapters {
-    return _visibleCache ??= _computeVisibleChapters();
+    final visible = _visibleCache ??= _computeVisibleChapters();
+    // 缓存始终按真实章节顺序存放，倒序只在展示层反转：
+    // 点击跳转、当前高亮、折叠展开用的都是真实位置，天然不受影响。
+    if (!_reverseOrder || visible.length < 2) return visible;
+    return visible.reversed.toList(growable: false);
   }
 
   List<int> _computeVisibleChapters() {
@@ -392,6 +400,41 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
     });
   }
 
+  String _tocText(String chinese, String english) =>
+      Localizations.localeOf(context).languageCode == 'zh'
+      ? chinese
+      : english;
+
+  Future<void> _toggleReverseOrder() async {
+    final next = !_reverseOrder;
+    setState(() => _reverseOrder = next);
+    // 视野跟着当前章节走，切换后不用重新找。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrent(animate: true);
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_tocOrderPrefKey, next);
+    } catch (_) {
+      // 测试环境没有平台通道，保持内存态即可。
+    }
+  }
+
+  Future<void> _restoreTocOrder() async {
+    bool? saved;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      saved = prefs.getBool(_tocOrderPrefKey);
+    } catch (_) {
+      return;
+    }
+    if (!mounted || saved == null || saved == _reverseOrder) return;
+    setState(() => _reverseOrder = saved!);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrent(animate: false);
+    });
+  }
+
   void _scrollToCurrent({bool animate = true}) {
     if (!_chapterScrollController.hasClients || _catalog.chapters.isEmpty) {
       return;
@@ -424,9 +467,14 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
       );
       return;
     }
+    final visibleList = _visibleChapters;
+    // 无折叠时显示列表就是全部章节：正序下当前位置即显示位置，
+    // 倒序下需要镜像换算（total - 1 - position）。
     final visiblePosition = _collapsedChapterPositions.isEmpty
-        ? currentPosition
-        : _visibleChapters.indexWhere(
+        ? (_reverseOrder
+              ? visibleList.length - 1 - currentPosition
+              : currentPosition)
+        : visibleList.indexWhere(
             (position) => position == currentPosition,
           );
     if (visiblePosition < 0) return;
@@ -651,6 +699,23 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
                         color: widget.palette.accent.withValues(alpha: 0.75),
                       ),
                     ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: _tocText(
+                  _reverseOrder ? '切回正序' : '章节倒序',
+                  _reverseOrder ? 'Ascending order' : 'Descending order',
+                ),
+                child: IconButton(
+                  key: const ValueKey('reader-navigation-order-toggle'),
+                  onPressed: _toggleReverseOrder,
+                  icon: Icon(
+                    _reverseOrder
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    color: widget.palette.secondaryText,
                   ),
                 ),
               ),
