@@ -139,19 +139,6 @@ class _PdfReaderPageState extends State<PdfReaderPage> {
                   _scheduleSave();
                 }
               },
-              builders: PdfViewBuilders(
-                documentLoaderBuilder: (_) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-                pageLoaderBuilder: (_) =>
-                    const Center(child: CircularProgressIndicator()),
-                errorBuilder: (_, error) => Center(
-                  child: Text(
-                    '$error',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ),
             ),
       bottomNavigationBar: _loading || _error != null
           ? null
@@ -204,7 +191,7 @@ class _PdfReaderPageState extends State<PdfReaderPage> {
                   _currentPage.value = page;
                   _controller?.animateToPage(
                     page,
-                    duration: const Duration(milliseconds: 220),
+                    duration: _anim,
                     curve: Curves.easeOutCubic,
                   );
                   _scheduleSave();
@@ -216,8 +203,10 @@ class _PdfReaderPageState extends State<PdfReaderPage> {
                 IconButton(
                   icon: const Icon(Icons.skip_previous),
                   color: Colors.white,
-                  onPressed: () =>
-                      _controller?.previousPage(duration: _anim),
+                  onPressed: () => _controller?.previousPage(
+                    duration: _anim,
+                    curve: Curves.easeOutCubic,
+                  ),
                 ),
                 Expanded(
                   child: Center(
@@ -233,7 +222,10 @@ class _PdfReaderPageState extends State<PdfReaderPage> {
                 IconButton(
                   icon: const Icon(Icons.skip_next),
                   color: Colors.white,
-                  onPressed: () => _controller?.nextPage(duration: _anim),
+                  onPressed: () => _controller?.nextPage(
+                    duration: _anim,
+                    curve: Curves.easeOutCubic,
+                  ),
                 ),
               ],
             ),
