@@ -486,8 +486,6 @@ extension _NativeReaderScaffold on _NativeReaderPageState {
                                   currentAnchorKey: currentBookmarkAnchorKey,
                                 ),
                               ),
-                              onSearch: () => unawaited(_showFullTextSearch()),
-                              searchTooltip: '全文搜索',
                               onReadAloud: isReaderAloudPlatformSupported
                                   ? () => unawaited(
                                       _handleReaderAloudButtonPressed(),
