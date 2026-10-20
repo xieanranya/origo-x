@@ -78,7 +78,9 @@ class ComicArchiveService {
       final extension = p.extension(base).toLowerCase().replaceFirst('.', '');
       if (!imageExtensions.contains(extension)) continue;
       final output = File(p.join(targetDir.path, base));
-      await output.writeAsBytes(entry.readBytes(), flush: true);
+      final content = entry.content;
+      if (content == null) continue;
+      await output.writeAsBytes(content, flush: true);
       names.add(base);
     }
     names.sort(naturalCompare);
