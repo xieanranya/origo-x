@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import '../models/book.dart';
 import '../services/books/book_dao.dart';
 import '../services/books/book_import_models.dart';
 import '../services/books/book_import_service.dart';
+import '../services/books/cover_generator_service.dart';
 import '../services/core/theme_notifier.dart';
 import '../services/reading/reading_stats_dao.dart';
 import 'reader/native/native_reader_page.dart';
@@ -247,6 +249,29 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
             ),
             const Divider(height: 1),
             ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: Text(_text('更换封面', 'Change cover')),
+              subtitle: Text(
+                _text('从文件里选一张图片', 'Pick an image file'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _changeCover(book);
+              },
+            ),
+            if (book.coverImagePath != null)
+              ListTile(
+                leading: const Icon(Icons.restart_alt),
+                title: Text(_text('恢复默认封面', 'Reset cover')),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _resetCover(book);
+                },
+              ),
+            const Divider(height: 1),
+            ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: Text(_text('编辑书名 / 作者', 'Edit title / author')),
               onTap: () {
@@ -267,6 +292,103 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
         ),
       ),
     );
+  }
+
+  /// 选一张本地图片作为这本书的封面。
+  Future<void> _changeCover(Book book) async {
+    if (book.id == null) return;
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: kIsWeb,
+      );
+      if (picked == null || picked.files.isEmpty) return;
+      final pickedFile = picked.files.first;
+      var bytes = pickedFile.bytes;
+      if (bytes == null && pickedFile.path != null) {
+        bytes = await File(pickedFile.path!).readAsBytes();
+      }
+      if (bytes == null || bytes.isEmpty) {
+        _message(_text('读取图片失败', 'Could not read the image'));
+        return;
+      }
+      final normalized = await _normalizeCoverImage(bytes);
+      if (normalized == null) {
+        _message(_text('这个图片无法解析', 'This image cannot be decoded'));
+        return;
+      }
+      final path = await CoverGenerator.saveCover(
+        normalized,
+        book.filePath,
+        fileTag: 'custom',
+        fileExtension: 'png',
+      );
+      await _booksDao.updateBookCoverPath(book.id!, path);
+      // 同一路径是覆盖写，必须清掉图片缓存才会显示新图。
+      await FileImage(File(path)).evict();
+      if (!mounted) return;
+      _reload();
+      _message(_text('封面已更新', 'Cover updated'));
+    } catch (error) {
+      _message(_text('更换封面失败：$error', 'Cover update failed: $error'));
+    }
+  }
+
+  /// 恢复自动生成的封面。
+  Future<void> _resetCover(Book book) async {
+    if (book.id == null) return;
+    try {
+      final previous = book.coverImagePath;
+      await _booksDao.updateBookCoverPath(book.id!, null);
+      if (previous != null && !kIsWeb) {
+        final file = File(previous);
+        await FileImage(file).evict();
+        if (await file.exists()) await file.delete();
+      }
+      if (!mounted) return;
+      _reload();
+      _message(_text('已恢复默认封面', 'Cover reset'));
+    } catch (error) {
+      _message(_text('恢复失败：$error', 'Reset failed: $error'));
+    }
+  }
+
+  /// 解码并等比缩放到最长边 1400 以内，避免把几十 MB 的原图塞进书库。
+  Future<Uint8List?> _normalizeCoverImage(Uint8List bytes) async {
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      var image = frame.image;
+      final longest = image.width > image.height ? image.width : image.height;
+      if (longest > 1400) {
+        final scale = 1400 / longest;
+        final targetWidth = (image.width * scale).round().clamp(1, 1400).toInt();
+        final targetHeight = (image.height * scale)
+            .round()
+            .clamp(1, 1400)
+            .toInt();
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          Rect.fromLTWH(0, 0, targetWidth.toDouble(), targetHeight.toDouble()),
+          Paint()..filterQuality = FilterQuality.high,
+        );
+        final picture = recorder.endRecording();
+        final resized = await picture.toImage(targetWidth, targetHeight);
+        picture.dispose();
+        image.dispose();
+        image = resized;
+      }
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      codec.dispose();
+      return data?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 编辑书名 / 作者。
