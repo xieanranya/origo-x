@@ -30,6 +30,16 @@ jobs:
         with:
           flutter-version: '3.44.4'
       - run: flutter pub get
+      # 新增依赖时自动把解析结果写回仓库，避免 lock 与 pubspec 不同步。
+      - name: Sync pubspec.lock
+        run: |
+          if ! git diff --quiet pubspec.lock; then
+            git config user.email "ci@local"
+            git config user.name "ci"
+            git add pubspec.lock
+            git commit -m "chore: sync pubspec.lock"
+            git push
+          fi
       - run: flutter gen-l10n
       - name: Dart format check（对齐上游 CI）
         id: fmt

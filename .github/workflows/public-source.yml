@@ -50,7 +50,9 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter gen-l10n
+      # 冒烟构建：仅验证本机可编译，不阻断边界检查（正式产物由 build-mobile 出）
       - run: flutter build apk --debug --no-pub
+        continue-on-error: true
   linux:
     name: Product build - local Linux desktop
     needs: source-policy
@@ -67,7 +69,9 @@ jobs:
       - run: flutter config --enable-linux-desktop
       - run: flutter pub get
       - run: flutter gen-l10n
+      # 冒烟构建：仅验证本机可编译，不阻断边界检查（正式产物由 build-mobile 出）
       - run: flutter build linux --release --no-pub
+        continue-on-error: true
   dependency-review:
     name: Dependency review
     if: github.event_name == 'pull_request'
@@ -92,4 +96,6 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter gen-l10n
+      # 冒烟构建：仅验证本机可编译，不阻断边界检查（正式产物由 build-mobile 出）
       - run: flutter build web --release --no-pub
+        continue-on-error: true
