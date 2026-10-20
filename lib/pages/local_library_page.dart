@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,9 +12,11 @@ import '../models/book.dart';
 import '../services/books/book_dao.dart';
 import '../services/books/book_import_models.dart';
 import '../services/books/book_import_service.dart';
+import '../services/books/comic_archive_service.dart';
 import '../services/books/cover_generator_service.dart';
 import '../services/core/theme_notifier.dart';
 import '../services/reading/reading_stats_dao.dart';
+import 'reader/comic/comic_reader_page.dart';
 import 'reader/native/native_reader_page.dart';
 
 /// 书架布局模式。
@@ -134,14 +137,36 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       } else {
         final result = await FilePicker.pickFiles(
           type: FileType.custom,
-          allowedExtensions: const ['txt', 'epub'],
+          allowedExtensions: const ['txt', 'epub', 'cbz', 'zip'],
           allowMultiple: true,
           withData: kIsWeb,
         );
         if (result == null) return;
         final importer = BookImportService();
         var imported = 0;
+        var skipped = 0;
         for (final file in result.files) {
+          // 漫画压缩包走解压导入，和 TXT / EPUB 不是一条链路。
+          final localPath = file.path;
+          if (localPath != null &&
+              ComicArchiveService.isComicArchive(
+                p.extension(localPath),
+              )) {
+            try {
+              final book = await ComicArchiveService.importComic(
+                File(localPath),
+              );
+              if (book == null) {
+                skipped++;
+              } else {
+                imported++;
+              }
+            } catch (error) {
+              skipped++;
+              debugPrint('漫画导入失败 ${file.name}: $error');
+            }
+            continue;
+          }
           final source = BookImportSource(
             id: 'picker:${file.name}:${DateTime.now().microsecondsSinceEpoch}',
             kind: BookImportSourceKind.filePicker,
@@ -156,7 +181,14 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
           await importer.importFile(source);
           imported++;
         }
-        _message(_text('已处理 $imported 本书', 'Processed $imported books'));
+        _message(
+          skipped == 0
+              ? _text('已处理 $imported 本书', 'Processed $imported books')
+              : _text(
+                  '已导入 $imported 本，$skipped 个文件没有可用图片',
+                  'Imported $imported, $skipped file(s) had no pages',
+                ),
+        );
       }
       _reload();
     } catch (error) {
@@ -167,6 +199,14 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   }
 
   Future<void> _open(Book book) async {
+    // 漫画走图片阅读页，与文本阅读器分开。
+    if (ComicArchiveService.isComicArchive(book.format)) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => ComicReaderPage(book: book)),
+      );
+      _reload();
+      return;
+    }
     if (widget.onOpenBook != null) {
       await widget.onOpenBook!(book);
     } else {

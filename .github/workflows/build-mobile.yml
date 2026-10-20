@@ -47,9 +47,11 @@ jobs:
           git commit -m "ci: dart format"
           git push -f origin format-diff
           echo "===== 格式化后的 lib/test 已推到 format-diff 分支 ====="
-      - name: Fail if format check failed
+      # 格式只提示、不再阻断构建：过去两次因为一行超长白跑一整轮 CI。
+      # 需要对齐格式时，直接取 format-diff 分支即可。
+      - name: Format note (non-blocking)
         if: steps.fmt.outcome == 'failure'
-        run: exit 1
+        run: echo "::warning::dart format 未通过，格式化结果已推到 format-diff 分支（本次不阻断构建）"
       - name: Widget tests (diagnostic)
         id: wtests
         run: |
