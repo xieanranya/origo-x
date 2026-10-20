@@ -271,6 +271,8 @@
     "lib/widgets/src/page_curl/reader_page_curl_settle.dart",
     "lib/widgets/src/page_curl/reader_page_curl_snapshot_cache.dart",
     "lib/widgets/src/page_curl/reader_page_curl_state.dart",
+    "lib/pages/reader/comic/comic_reader_page.dart",
+    "lib/services/books/comic_archive_service.dart",
     "linux/.gitignore",
     "linux/CMakeLists.txt",
     "linux/flutter/CMakeLists.txt",

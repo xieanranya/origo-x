@@ -2,6 +2,7 @@
 // 技术要点：图片按 cacheWidth 限制解码宽度避免 OOM；进度写入 books 表，与文本同库。
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -318,10 +319,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
               ValueListenableBuilder<int>(
                 valueListenable: _currentPage,
                 builder: (context, current, _) => Slider(
-                  value: current
-                      .toDouble()
-                      .clamp(0, (_pages.length - 1).toDouble()),
-                  max: (_pages.length - 1).toDouble().clamp(1, 1 << 30),
+                  value: current.toDouble().clamp(
+                    0.0,
+                    math.max(1.0, (_pages.length - 1).toDouble()),
+                  ),
+                  max: math.max(1.0, (_pages.length - 1).toDouble()),
                   onChanged: (value) => _goToPage(value.round()),
                 ),
               ),
@@ -334,9 +336,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        '${_currentPage.value + 1} / ${_pages.length}',
-                        style: const TextStyle(color: Colors.white),
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _currentPage,
+                        builder: (context, current, _) => Text(
+                          '${current + 1} / ${_pages.length}',
+                          style: const TextStyle(color: Colors.white),
+                        ),
                       ),
                     ),
                   ),
