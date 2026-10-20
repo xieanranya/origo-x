@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,7 @@ import '../services/books/cover_generator_service.dart';
 import '../services/core/theme_notifier.dart';
 import '../services/reading/reading_stats_dao.dart';
 import 'reader/comic/comic_reader_page.dart';
+import 'reader/comic/pdf_reader_page.dart';
 import 'reader/native/native_reader_page.dart';
 
 /// 书架布局模式。
@@ -137,7 +139,17 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       } else {
         final result = await FilePicker.pickFiles(
           type: FileType.custom,
-          allowedExtensions: const ['txt', 'epub', 'cbz', 'zip'],
+          allowedExtensions: const [
+            'txt',
+            'epub',
+            'cbz',
+            'zip',
+            'cbr',
+            'rar',
+            'cb7',
+            '7z',
+            'pdf',
+          ],
           allowMultiple: true,
           withData: kIsWeb,
         );
@@ -146,12 +158,14 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
         var imported = 0;
         var skipped = 0;
         for (final file in result.files) {
-          // 漫画压缩包走解压导入，和 TXT / EPUB 不是一条链路。
           final localPath = file.path;
-          if (localPath != null &&
-              ComicArchiveService.isComicArchive(
-                p.extension(localPath),
-              )) {
+          if (localPath == null) continue;
+          final extension = p
+              .extension(localPath)
+              .replaceFirst('.', '')
+              .toLowerCase();
+          // 漫画压缩包：解压图片后按图片流阅读。
+          if (ComicArchiveService.isComicArchive(extension)) {
             try {
               final book = await ComicArchiveService.importComic(
                 File(localPath),
@@ -164,6 +178,17 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
             } catch (error) {
               skipped++;
               debugPrint('漫画导入失败 ${file.name}: $error');
+            }
+            continue;
+          }
+          // PDF：直接复制入库，页数等打开阅读页时回填。
+          if (extension == 'pdf') {
+            try {
+              await _importPdf(File(localPath));
+              imported++;
+            } catch (error) {
+              skipped++;
+              debugPrint('PDF 导入失败 ${file.name}: $error');
             }
             continue;
           }
@@ -185,8 +210,8 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
           skipped == 0
               ? _text('已处理 $imported 本书', 'Processed $imported books')
               : _text(
-                  '已导入 $imported 本，$skipped 个文件没有可用图片',
-                  'Imported $imported, $skipped file(s) had no pages',
+                  '已导入 $imported 本，$skipped 个文件失败',
+                  'Imported $imported, $skipped file(s) failed',
                 ),
         );
       }
@@ -199,10 +224,17 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   }
 
   Future<void> _open(Book book) async {
-    // 漫画走图片阅读页，与文本阅读器分开。
+    // 漫画走图片阅读页，PDF 走原生渲染页，都与文本阅读器分开。
     if (ComicArchiveService.isComicArchive(book.format)) {
       await Navigator.of(context).push<void>(
         MaterialPageRoute(builder: (_) => ComicReaderPage(book: book)),
+      );
+      _reload();
+      return;
+    }
+    if (book.format.toLowerCase() == 'pdf') {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => PdfReaderPage(book: book)),
       );
       _reload();
       return;
@@ -332,6 +364,30 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
         ),
       ),
     );
+  }
+
+  /// 复制 PDF 到书库并建记录；真实页数在阅读页打开时回填。
+  Future<void> _importPdf(File source) async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final pdfsDir = Directory(p.join(documentsDir.path, 'pdfs'));
+    await pdfsDir.create(recursive: true);
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final target = p.join(
+      pdfsDir.path,
+      '${stamp}_${p.basename(source.path)}',
+    );
+    await source.copy(target);
+    final book = Book(
+      title: p.basenameWithoutExtension(source.path),
+      author: '',
+      filePath: target,
+      format: 'PDF',
+      currentPage: 0,
+      totalPages: 1,
+      readingProgress: 0,
+      importDate: DateTime.now(),
+    );
+    await _booksDao.insertBook(book);
   }
 
   /// 选一张本地图片作为这本书的封面。

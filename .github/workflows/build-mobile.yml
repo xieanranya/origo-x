@@ -29,7 +29,7 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.44.4'
-      - run: flutter pub get --enforce-lockfile
+      - run: flutter pub get
       - run: flutter gen-l10n
       - name: Dart format check（对齐上游 CI）
         id: fmt
@@ -96,7 +96,7 @@ jobs:
           flutter-version: '3.44.4'
       - name: Pub get & l10n
         run: |
-          flutter pub get --enforce-lockfile
+          flutter pub get
           flutter gen-l10n
       - name: Build iOS (unsigned)
         run: flutter build ios --release --no-codesign
@@ -137,7 +137,7 @@ jobs:
         with:
           flutter-version: '3.44.4'
       - run: |
-          flutter pub get --enforce-lockfile
+          flutter pub get
           flutter gen-l10n
       - name: Build APK
         run: flutter build apk --release

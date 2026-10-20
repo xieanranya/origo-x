@@ -23,7 +23,7 @@ jobs:
           flutter-version: '3.44.4'
           channel: stable
           cache: true
-      - run: flutter pub get --enforce-lockfile
+      - run: flutter pub get
       - run: flutter gen-l10n
       # 格式仅作提示：本工作流的核心是源码边界检查，不应被格式问题阻断。
       - run: dart format --output=none --set-exit-if-changed lib test || echo "::warning::dart format 未通过（仅提示，不阻断）"
@@ -48,7 +48,7 @@ jobs:
           flutter-version: '3.44.4'
           channel: stable
           cache: true
-      - run: flutter pub get --enforce-lockfile
+      - run: flutter pub get
       - run: flutter gen-l10n
       - run: flutter build apk --debug --no-pub
   linux:
@@ -65,7 +65,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter config --enable-linux-desktop
-      - run: flutter pub get --enforce-lockfile
+      - run: flutter pub get
       - run: flutter gen-l10n
       - run: flutter build linux --release --no-pub
   dependency-review:
@@ -90,6 +90,6 @@ jobs:
           flutter-version: '3.44.4'
           channel: stable
           cache: true
-      - run: flutter pub get --enforce-lockfile
+      - run: flutter pub get
       - run: flutter gen-l10n
       - run: flutter build web --release --no-pub

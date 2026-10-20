@@ -1,7 +1,7 @@
 name: xxread
 description: Local TXT and EPUB reader source edition.
 publish_to: none
-version: 2.7.13+261021011
+version: 2.7.14+261021012
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -19,8 +19,10 @@ dependencies:
   gbk_codec: ^0.4.0
   html: ^0.15.6
   intl: ^0.20.2
+  koni_archive: ^0.8.0
   path: ^1.9.1
   path_provider: ^2.1.6
+  pdfx: ^2.11.0
   provider: ^6.1.5
   scrollable_positioned_list: ^0.3.8
   shared_preferences: ^2.5.5

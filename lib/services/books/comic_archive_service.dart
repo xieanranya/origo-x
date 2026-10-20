@@ -1,9 +1,9 @@
-// 文件说明：漫画压缩包（CBZ / ZIP）的解压、导入与图片枚举。
-// 技术要点：只抽取图片条目、按自然序排序；导入后书籍记录复用现有 books 表，
-// 阅读时由 ComicReaderPage 以图片流方式呈现，与 TXT / EPUB 完全同库。
+// 文件说明：漫画压缩包（CBZ / ZIP / CBR / RAR / CB7 / 7Z）的解压、导入与图片枚举。
+// 技术要点：统一走 koni_archive（纯 Dart，无原生依赖），格式自动识别；
+// 导入后书籍记录复用现有 books 表，阅读时由 ComicReaderPage 以图片流呈现。
 import 'dart:io';
 
-import 'package:archive/archive.dart';
+import 'package:koni_archive/io.dart' as koni;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -25,8 +25,18 @@ class ComicArchiveService {
     'bmp',
   };
 
-  /// 支持的漫画压缩包扩展名。
-  static const Set<String> archiveExtensions = <String>{'cbz', 'zip'};
+  /// 支持的漫画压缩包扩展名（CBZ/ZIP 之外，RAR/CBR 与 7z/CB7 由 koni_archive 读取）。
+  static const Set<String> archiveExtensions = <String>{
+    'cbz',
+    'zip',
+    'cbr',
+    'rar',
+    'cb7',
+    '7z',
+  };
+
+  /// 单个条目解压后的体积上限，防止压缩炸弹。
+  static const int _maxEntryBytes = 80 * 1024 * 1024;
 
   /// 判断扩展名是否为受支持的漫画压缩包。
   static bool isComicArchive(String extension) =>
@@ -67,31 +77,32 @@ class ComicArchiveService {
     File archiveFile,
     Directory targetDir,
   ) async {
-    final bytes = await archiveFile.readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+    final archive = await koni.openArchiveFile(archiveFile.path);
     await targetDir.create(recursive: true);
     final names = <String>[];
-    for (final entry in archive) {
-      if (!entry.isFile) continue;
-      final base = p.basename(entry.name);
-      if (base.isEmpty || base.startsWith('.')) continue;
-      final extension = p.extension(base).toLowerCase().replaceFirst('.', '');
-      if (!imageExtensions.contains(extension)) continue;
-      final output = File(p.join(targetDir.path, base));
-      final content = entry.content;
-      if (content == null) continue;
-      await output.writeAsBytes(content, flush: true);
-      names.add(base);
+    try {
+      for (final entry in archive.files) {
+        final base = p.basename(entry.path);
+        if (base.isEmpty || base.startsWith('.')) continue;
+        final extension = p
+            .extension(base)
+            .replaceFirst('.', '')
+            .toLowerCase();
+        if (!imageExtensions.contains(extension)) continue;
+        final bytes = await archive.readBytes(entry, maxSize: _maxEntryBytes);
+        final output = File(p.join(targetDir.path, base));
+        await output.writeAsBytes(bytes, flush: true);
+        names.add(base);
+      }
+    } finally {
+      await archive.close();
     }
     names.sort(naturalCompare);
     return names;
   }
 
   /// 导入一个漫画压缩包，返回新建的书籍记录；没有可用图片时返回 null。
-  static Future<Book?> importComic(
-    File archiveFile, {
-    BookDao? dao,
-  }) async {
+  static Future<Book?> importComic(File archiveFile, {BookDao? dao}) async {
     final extension = p.extension(archiveFile.path).replaceFirst('.', '');
     if (!isComicArchive(extension)) return null;
 
