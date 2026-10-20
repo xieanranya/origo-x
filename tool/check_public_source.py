@@ -20,8 +20,10 @@ FORBIDDEN_PATHS = (
 FORBIDDEN_DEPENDENCIES = (
     'dio', 'flutter_js', 'in_app_purchase', 'flutter_secure_storage',
     'passkeys', 'sign_in_with_apple', 'google_sign_in', 'flutter_web_auth_2',
-    'audioplayers', 'pdfx', 'kindle_unpack', 'pointycastle',
+    'audioplayers', 'kindle_unpack', 'pointycastle',
 )
+# pdfx 已移出禁名单：iOS 走 CGPDFPage、Android 走系统 PdfRenderer，
+# 均不引入第三方二进制；仅 Windows/Web 端才带 pdfium/pdfjs，本项目不发这两端。
 # Only report path and finding type, never matched values.
 CONTENT_CHECKS = {
     'private home path': re.compile(r'(?:/Users/|/home/)[A-Za-z0-9_.-]+/|[A-Za-z]:\\Users\\'),
