@@ -363,7 +363,10 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       final longest = image.width > image.height ? image.width : image.height;
       if (longest > 1400) {
         final scale = 1400 / longest;
-        final targetWidth = (image.width * scale).round().clamp(1, 1400).toInt();
+        final targetWidth = (image.width * scale)
+            .round()
+            .clamp(1, 1400)
+            .toInt();
         final targetHeight = (image.height * scale)
             .round()
             .clamp(1, 1400)

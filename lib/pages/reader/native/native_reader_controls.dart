@@ -92,6 +92,8 @@ extension _NativeReaderControls on _NativeReaderPageState {
         return '闲潭梦落花 日';
       case 'xian_tan_dark':
         return '闲潭梦落花 夜';
+      case 'ye_se_dark':
+        return '夜色·月 夜';
       case ReaderCustomTheme.themeId:
         return context.l10n.readerThemeCustom;
       default:

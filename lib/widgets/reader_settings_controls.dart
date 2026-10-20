@@ -1402,6 +1402,7 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     ReaderThemes.systemId => Icons.brightness_auto_rounded,
     'xian_tan_light' => Icons.landscape_outlined,
     'xian_tan_dark' => Icons.landscape_rounded,
+    'ye_se_dark' => Icons.nightlight_round,
     'pureBlack' => Icons.brightness_1_rounded,
     'night' => Icons.dark_mode_rounded,
     'navy' => Icons.nights_stay_rounded,

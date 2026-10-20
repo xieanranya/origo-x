@@ -50,6 +50,7 @@
     "assets/images/app_icon_android_foreground.png",
     "assets/reader_themes/xian_tan_dark.png",
     "assets/reader_themes/xian_tan_light.png",
+    "assets/reader_themes/ye_se_dark.png",
     "ios/.gitignore",
     "ios/Flutter/AppFrameworkInfo.plist",
     "ios/Flutter/Debug.xcconfig",

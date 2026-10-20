@@ -344,7 +344,25 @@ class ReaderThemes {
     _themeOrder = resolveThemeOrder(themeIds, _customThemes);
   }
 
-  // ---- 内置主题：闲潭梦落花（纸张底图在 assets/reader_themes/）----
+  // ---- 内置主题：闲潭梦落花、夜色·月（纸张底图在 assets/reader_themes/）----
+
+  /// 夜色·月（夜）
+  static const yeSeDark = ReaderThemePalette(
+    id: 'ye_se_dark',
+    brightness: Brightness.dark,
+    background: Color(0xFF0B1220),
+    text: Color(0xFFD6DEE8),
+    secondaryText: Color(0xFF8D95A0),
+    surface: Color(0xFF19202E),
+    controlBar: Color(0xFF131D2E),
+    controlFill: Color(0xFF36404F),
+    accent: Color(0xFF8FA9C9),
+    onAccent: Color(0xFF0B1220),
+    border: Color(0xFF464F5E),
+    shadow: Color(0xFFD6DEE8),
+    backgroundImagePath: 'assets/reader_themes/ye_se_dark.png',
+    backgroundImageOpacity: 1.0,
+  );
 
   /// 闲潭梦落花（日）
   static const xianTanLight = ReaderThemePalette(
@@ -482,6 +500,7 @@ class ReaderThemes {
         pureBlack,
         xianTanLight,
         xianTanDark,
+        yeSeDark,
       ];
 
   static List<ReaderThemePalette> get all => <ReaderThemePalette>[
