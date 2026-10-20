@@ -401,9 +401,7 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
   }
 
   String _tocText(String chinese, String english) =>
-      Localizations.localeOf(context).languageCode == 'zh'
-      ? chinese
-      : english;
+      Localizations.localeOf(context).languageCode == 'zh' ? chinese : english;
 
   Future<void> _toggleReverseOrder() async {
     final next = !_reverseOrder;
@@ -474,9 +472,7 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
         ? (_reverseOrder
               ? visibleList.length - 1 - currentPosition
               : currentPosition)
-        : visibleList.indexWhere(
-            (position) => position == currentPosition,
-          );
+        : visibleList.indexWhere((position) => position == currentPosition);
     if (visiblePosition < 0) return;
     final chapterExtent = _chapterExtent;
     final position = _chapterScrollController.position;
