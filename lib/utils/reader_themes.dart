@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/reader/reader_custom_theme.dart';
 import '../core/reader/reader_settings.dart';
@@ -143,6 +144,29 @@ class ReaderThemes {
 
   static const String systemId = 'system';
 
+  /// 「跟随系统」在白天 / 夜晚分别使用哪个主题（用户可长按卡片修改）。
+  static const String _prefSystemDayKey = 'reader_system_day_theme_v1';
+  static const String _prefSystemNightKey = 'reader_system_night_theme_v1';
+  static String _systemDayThemeId = day.id;
+  static String _systemNightThemeId = pureBlack.id;
+
+  static String get systemDayThemeId => _systemDayThemeId;
+  static String get systemNightThemeId => _systemNightThemeId;
+
+  /// 解析成具体主题；跳过 [systemId] 避免「跟随系统」指向自己导致递归。
+  ///
+  /// 注意：这里只能遍历内置常量列表，不能遍历 [all] —— 后者会调用
+  /// [systemPalette]，从而形成无限递归。
+  static ReaderThemePalette _resolveConcrete(String id) {
+    for (final theme in _customThemes) {
+      if (theme.id == id) return fromCustomTheme(theme);
+    }
+    for (final theme in _concreteBuiltins) {
+      if (theme.id == id) return theme;
+    }
+    return day;
+  }
+
   static List<ReaderCustomTheme> _customThemes = const [];
   static List<String> _themeOrder = const [];
   static ReaderThemePalette? _savedPaletteCache;
@@ -167,15 +191,16 @@ class ReaderThemes {
       themeOrder.map(byId).toList(growable: false);
 
   static ReaderThemePalette systemPalette({Brightness? platformBrightness}) {
-    final source =
+    final isDark =
         (platformBrightness ??
                 WidgetsBinding
                     .instance
                     .platformDispatcher
                     .platformBrightness) ==
-            Brightness.dark
-        ? pureBlack
-        : day;
+            Brightness.dark;
+    final source = _resolveConcrete(
+      isDark ? _systemNightThemeId : _systemDayThemeId,
+    );
     return ReaderThemePalette(
       id: systemId,
       brightness: source.brightness,
@@ -222,7 +247,40 @@ class ReaderThemes {
     return load;
   }
 
+  /// 读取「跟随系统」配置的白天/夜晚主题；失败时保持内置默认。
+  static Future<void> _loadSystemPair() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _systemDayThemeId = prefs.getString(_prefSystemDayKey) ?? day.id;
+      _systemNightThemeId =
+          prefs.getString(_prefSystemNightKey) ?? pureBlack.id;
+    } catch (error) {
+      debugPrint('Failed to restore system theme pair (${error.runtimeType}).');
+    }
+  }
+
+  /// 修改「跟随系统」的白天/夜晚主题。
+  ///
+  /// [dayId] / [nightId] 传入 `system` 会被忽略，避免自引用。
+  static Future<void> setSystemThemePair({
+    String? dayId,
+    String? nightId,
+  }) async {
+    if (dayId != null && dayId != systemId) _systemDayThemeId = dayId;
+    if (nightId != null && nightId != systemId) _systemNightThemeId = nightId;
+    // 缓存的配色可能是旧的 system 解析结果，必须失效。
+    invalidateSavedPaletteCache();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefSystemDayKey, _systemDayThemeId);
+      await prefs.setString(_prefSystemNightKey, _systemNightThemeId);
+    } catch (error) {
+      debugPrint('Failed to persist system theme pair (${error.runtimeType}).');
+    }
+  }
+
   static Future<ReaderThemePalette> _readSavedPalette() async {
+    await _loadSystemPair();
     try {
       final results = await Future.wait<Object>([
         const ReaderSettingsStore().loadThemeId(),
@@ -288,6 +346,116 @@ class ReaderThemes {
   static void setThemeOrder(List<String> themeIds) {
     _themeOrder = resolveThemeOrder(themeIds, _customThemes);
   }
+
+  // ---- 内置水墨主题（带纸张底图，资源在 assets/reader_themes/）----
+
+  /// 夜色·月（日）
+  static const yekongLight = ReaderThemePalette(
+    id: 'yekong_light',
+    brightness: Brightness.light,
+    background: Color(0xFFEEF2F6),
+    text: Color(0xFF232B36),
+    secondaryText: Color(0xFF6C737B),
+    surface: Color(0xFFE7EBEF),
+    controlBar: Color(0xFFE4EAF1),
+    controlFill: Color(0xFFCFD5DC),
+    accent: Color(0xFF3A5A80),
+    onAccent: Color(0xFFFFFFFF),
+    border: Color(0xFFBDC4CC),
+    shadow: Color(0xFF232B36),
+    backgroundImagePath: 'assets/reader_themes/yekong_light.png',
+    backgroundImageOpacity: 1.0,
+  );
+
+  /// 夜色·月（夜）
+  static const yekongDark = ReaderThemePalette(
+    id: 'yekong_dark',
+    brightness: Brightness.dark,
+    background: Color(0xFF0B1220),
+    text: Color(0xFFD6DEE8),
+    secondaryText: Color(0xFF8D95A0),
+    surface: Color(0xFF19202E),
+    controlBar: Color(0xFF131D2E),
+    controlFill: Color(0xFF36404F),
+    accent: Color(0xFF8FA9C9),
+    onAccent: Color(0xFF0B1220),
+    border: Color(0xFF464F5E),
+    shadow: Color(0xFFD6DEE8),
+    backgroundImagePath: 'assets/reader_themes/yekong_dark.png',
+    backgroundImageOpacity: 1.0,
+  );
+
+  /// 水墨·疏花（日）
+  static const shuimoLight = ReaderThemePalette(
+    id: 'shuimo_light',
+    brightness: Brightness.light,
+    background: Color(0xFFF2F2EF),
+    text: Color(0xFF2A2E2A),
+    secondaryText: Color(0xFF727571),
+    surface: Color(0xFFEBEBE8),
+    controlBar: Color(0xFFE7E9E4),
+    controlFill: Color(0xFFD2D4D0),
+    accent: Color(0xFF5A6B5F),
+    onAccent: Color(0xFFFFFFFF),
+    border: Color(0xFFC1C4BF),
+    shadow: Color(0xFF2A2E2A),
+    backgroundImagePath: 'assets/reader_themes/shuimo_light.png',
+    backgroundImageOpacity: 1.0,
+  );
+
+  /// 水墨·疏花（夜）
+  static const shuimoDark = ReaderThemePalette(
+    id: 'shuimo_dark',
+    brightness: Brightness.dark,
+    background: Color(0xFF191C1B),
+    text: Color(0xFFCBD4CE),
+    secondaryText: Color(0xFF8B928E),
+    surface: Color(0xFF252928),
+    controlBar: Color(0xFF222724),
+    controlFill: Color(0xFF404643),
+    accent: Color(0xFF9BB3A5),
+    onAccent: Color(0xFF191C1B),
+    border: Color(0xFF4E5450),
+    shadow: Color(0xFFCBD4CE),
+    backgroundImagePath: 'assets/reader_themes/shuimo_dark.png',
+    backgroundImageOpacity: 1.0,
+  );
+
+  /// 宣纸·竹影（日）
+  static const xuanzhiLight = ReaderThemePalette(
+    id: 'xuanzhi_light',
+    brightness: Brightness.light,
+    background: Color(0xFFF5F0E0),
+    text: Color(0xFF2E2A20),
+    secondaryText: Color(0xFF767165),
+    surface: Color(0xFFEEE9D9),
+    controlBar: Color(0xFFECE5D2),
+    controlFill: Color(0xFFD7D0BE),
+    accent: Color(0xFF7A6A45),
+    onAccent: Color(0xFFFFFFFF),
+    border: Color(0xFFC6C0AE),
+    shadow: Color(0xFF2E2A20),
+    backgroundImagePath: 'assets/reader_themes/xuanzhi_light.png',
+    backgroundImageOpacity: 1.0,
+  );
+
+  /// 宣纸·竹影（夜）
+  static const xuanzhiDark = ReaderThemePalette(
+    id: 'xuanzhi_dark',
+    brightness: Brightness.dark,
+    background: Color(0xFF1D1B16),
+    text: Color(0xFFD8D0BD),
+    secondaryText: Color(0xFF958F81),
+    surface: Color(0xFF2A2822),
+    controlBar: Color(0xFF272318),
+    controlFill: Color(0xFF474236),
+    accent: Color(0xFFC0AA7C),
+    onAccent: Color(0xFF1D1B16),
+    border: Color(0xFF555043),
+    shadow: Color(0xFFD8D0BD),
+    backgroundImagePath: 'assets/reader_themes/xuanzhi_dark.png',
+    backgroundImageOpacity: 1.0,
+  );
 
   static const day = ReaderThemePalette(
     id: 'day',
@@ -409,16 +577,28 @@ class ReaderThemes {
     shadow: Color(0xFF000000),
   );
 
+  /// 内置的具体主题（不含「跟随系统」本身），供主题顺序与解析使用。
+  static const List<ReaderThemePalette> _concreteBuiltins =
+      <ReaderThemePalette>[
+        day,
+        mist,
+        green,
+        rose,
+        parchment,
+        navy,
+        night,
+        pureBlack,
+        yekongLight,
+        yekongDark,
+        shuimoLight,
+        shuimoDark,
+        xuanzhiLight,
+        xuanzhiDark,
+      ];
+
   static List<ReaderThemePalette> get all => <ReaderThemePalette>[
     systemPalette(),
-    day,
-    mist,
-    green,
-    rose,
-    parchment,
-    navy,
-    night,
-    pureBlack,
+    ..._concreteBuiltins,
   ];
 
   static List<String> resolveThemeOrder(

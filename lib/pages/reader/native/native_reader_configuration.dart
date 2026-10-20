@@ -186,6 +186,16 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
     await _readerSettingsStore.save(_readerSettings);
   }
 
+  /// 「跟随系统」的白天/夜晚主题被修改后强制刷新。
+  ///
+  /// 此时主题 id 仍是 `system`，但解析出的配色变了，不能走 [_setReaderTheme]
+  /// 的 id 相等早退分支。
+  Future<void> _refreshReaderThemePalette() async {
+    ReaderThemes.invalidateSavedPaletteCache();
+    _setReaderState(() {});
+    if (_readerSystemUiApplied) await _applyReaderSystemUi();
+  }
+
   Widget _buildStyledReaderText(
     _NativeChapter chapter,
     _ReaderPageData page, {

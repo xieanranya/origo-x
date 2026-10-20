@@ -1,7 +1,7 @@
 name: xxread
 description: Local TXT and EPUB reader source edition.
 publish_to: none
-version: 2.7.8+261020006
+version: 2.7.9+261020007
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -45,6 +45,7 @@ flutter:
     - assets/fonts/licenses/
     - assets/icons/
     - assets/images/
+    - assets/reader_themes/
     - LICENSE
     - LICENSE-MIT-LEGACY
   shaders:

@@ -24,7 +24,9 @@ class ReaderThemeBackground extends StatelessWidget {
         if (palette.hasBackgroundImage)
           Positioned.fill(
             child: Opacity(
-              opacity: palette.backgroundImageOpacity.clamp(0.0, 0.75),
+              // 不透明纸张图（内置水墨主题）需要满值渲染，
+              // 否则底色会透上来把图洗淡；用户自定义的不透明度仍然原样生效。
+              opacity: palette.backgroundImageOpacity.clamp(0.0, 1.0),
               child: buildReaderThemeBackgroundImage(
                 palette.backgroundImagePath!,
               ),

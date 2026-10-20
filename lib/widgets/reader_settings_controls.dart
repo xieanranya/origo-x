@@ -112,6 +112,7 @@ class ReaderSettingsSheet extends StatefulWidget {
     required this.themeLabelFor,
     required this.onThemeChanged,
     required this.onCustomThemeTap,
+    this.onThemeConfigChanged,
     required this.onPageModeTap,
     this.autoPageTurnController,
     this.autoPageTurnIsVertical = false,
@@ -208,6 +209,10 @@ class ReaderSettingsSheet extends StatefulWidget {
   final String Function(String themeId) themeLabelFor;
   final ValueChanged<String> onThemeChanged;
   final VoidCallback onCustomThemeTap;
+
+  /// 「跟随系统」的日夜主题被修改后调用：主题 id 没变但配色变了，
+  /// 需要阅读器强制刷新一次调色板。
+  final VoidCallback? onThemeConfigChanged;
   final VoidCallback onPageModeTap;
   final ReaderAutoPageTurnController? autoPageTurnController;
   final bool autoPageTurnIsVertical;
@@ -584,6 +589,100 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
     ),
   ];
 
+  String _themeDisplayName(ReaderThemePalette palette) {
+    final custom = ReaderThemes.customThemeById(palette.id);
+    if (custom != null && custom.name.trim().isNotEmpty) {
+      return custom.name.trim();
+    }
+    return widget.themeLabelFor(palette.id);
+  }
+
+  /// 长按「跟随系统」：分别指定白天与夜晚使用的主题。
+  Future<void> _showSystemThemeEditor() async {
+    var dayId = ReaderThemes.systemDayThemeId;
+    var nightId = ReaderThemes.systemNightThemeId;
+    final options = ReaderThemes.orderedPalettes
+        .where((palette) => palette.id != ReaderThemes.systemId)
+        .toList(growable: false);
+    if (options.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final theme = Theme.of(context);
+          Widget chipRow(
+            String selectedId,
+            Future<void> Function(String id) onPick,
+          ) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final palette in options)
+                  ChoiceChip(
+                    selected: palette.id == selectedId,
+                    onSelected: (_) => unawaited(onPick(palette.id)),
+                    avatar: CircleAvatar(
+                      radius: 8,
+                      backgroundColor: palette.background,
+                    ),
+                    label: Text(_themeDisplayName(palette)),
+                  ),
+              ],
+            );
+          }
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('跟随系统', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '分别指定白天和夜晚使用的主题。修改后立即生效。',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 18),
+                  Text('白天使用', style: theme.textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  chipRow(dayId, (id) async {
+                    dayId = id;
+                    setSheetState(() {});
+                    await ReaderThemes.setSystemThemePair(dayId: id);
+                    widget.onThemeConfigChanged?.call();
+                  }),
+                  const SizedBox(height: 20),
+                  Text('夜晚使用', style: theme.textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  chipRow(nightId, (id) async {
+                    nightId = id;
+                    setSheetState(() {});
+                    await ReaderThemes.setSystemThemePair(nightId: id);
+                    widget.onThemeConfigChanged?.call();
+                  }),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('完成'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   List<Widget> _themeTabChildren(ThemeData theme) => [
     Text(widget.themeDescription, style: theme.textTheme.bodySmall),
     const SizedBox(height: 12),
@@ -595,6 +694,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
         widget.onThemeChanged(themeId);
       },
       onCustomThemeTap: widget.onCustomThemeTap,
+      onSystemThemeLongPress: () => unawaited(_showSystemThemeEditor()),
     ),
     const Divider(height: 28),
     ListTile(
@@ -1097,6 +1197,7 @@ class ReaderThemeStrip extends StatefulWidget {
     required this.labelFor,
     required this.onSelected,
     required this.onCustomThemeTap,
+    this.onSystemThemeLongPress,
     this.palettes,
     this.showCustomAction = true,
     this.cardWidth = 108,
@@ -1107,6 +1208,9 @@ class ReaderThemeStrip extends StatefulWidget {
   final String Function(String themeId) labelFor;
   final ValueChanged<String> onSelected;
   final VoidCallback onCustomThemeTap;
+
+  /// 长按「跟随系统」卡片：编辑白天 / 夜晚分别使用哪个主题。
+  final VoidCallback? onSystemThemeLongPress;
   final List<ReaderThemePalette>? palettes;
   final bool showCustomAction;
   final double cardWidth;
@@ -1283,6 +1387,9 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
                     ? Icons.image_rounded
                     : Icons.palette_rounded,
                 onTap: () => widget.onSelected(palette.id),
+                onLongPress: palette.id == ReaderThemes.systemId
+                    ? widget.onSystemThemeLongPress
+                    : null,
               );
             },
           ),
@@ -1293,6 +1400,12 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
 
   IconData _iconFor(String id) => switch (id) {
     ReaderThemes.systemId => Icons.brightness_auto_rounded,
+    'yekong_light' => Icons.wb_twilight_rounded,
+    'yekong_dark' => Icons.nightlight_round,
+    'shuimo_light' => Icons.spa_rounded,
+    'shuimo_dark' => Icons.spa_rounded,
+    'xuanzhi_light' => Icons.park_rounded,
+    'xuanzhi_dark' => Icons.park_rounded,
     'pureBlack' => Icons.brightness_1_rounded,
     'night' => Icons.dark_mode_rounded,
     'navy' => Icons.nights_stay_rounded,
@@ -1313,6 +1426,7 @@ class _ReaderThemeCard extends StatelessWidget {
     required this.selected,
     required this.icon,
     required this.onTap,
+    this.onLongPress,
   });
 
   final double width;
@@ -1321,6 +1435,7 @@ class _ReaderThemeCard extends StatelessWidget {
   final bool selected;
   final IconData icon;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1333,6 +1448,7 @@ class _ReaderThemeCard extends StatelessWidget {
         label: label,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: cardRadius,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -1367,6 +1483,14 @@ class _ReaderThemeCard extends StatelessWidget {
                     Row(
                       children: [
                         Icon(icon, size: 18, color: palette.secondaryText),
+                        if (onLongPress != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.tune_rounded,
+                            size: 13,
+                            color: palette.secondaryText.withValues(alpha: 0.7),
+                          ),
+                        ],
                         const Spacer(),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 180),

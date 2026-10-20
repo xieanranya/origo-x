@@ -94,6 +94,18 @@ extension _NativeReaderControls on _NativeReaderPageState {
         return context.l10n.readerThemeParchment;
       case ReaderCustomTheme.themeId:
         return context.l10n.readerThemeCustom;
+      case 'yekong_light':
+        return '夜色·月 日';
+      case 'yekong_dark':
+        return '夜色·月 夜';
+      case 'shuimo_light':
+        return '水墨·疏花 日';
+      case 'shuimo_dark':
+        return '水墨·疏花 夜';
+      case 'xuanzhi_light':
+        return '宣纸·竹影 日';
+      case 'xuanzhi_dark':
+        return '宣纸·竹影 夜';
       default:
         return context.l10n.readerThemeDay;
     }
@@ -489,6 +501,7 @@ extension _NativeReaderControls on _NativeReaderPageState {
         chapterTitlePageEnabled: _chapterTitlePageEnabled,
         themeLabelFor: (id) => _readerThemeName(context, id),
         onThemeChanged: (id) => unawaited(_setReaderTheme(id)),
+        onThemeConfigChanged: () => unawaited(_refreshReaderThemePalette()),
         onCustomThemeTap: _showCustomThemeEditor,
         onPageModeTap: _showPageModeSettings,
         onTopBarStyleTap: _showTopBarStyleSettings,
