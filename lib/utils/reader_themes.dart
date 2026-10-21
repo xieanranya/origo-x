@@ -414,6 +414,22 @@ class ReaderThemes {
     shadow: Color(0xFF202124),
   );
 
+  /// 护眼（豆沙绿纸底）
+  static const green = ReaderThemePalette(
+    id: 'green',
+    brightness: Brightness.light,
+    background: Color(0xFFE9F1E5),
+    text: Color(0xFF263126),
+    secondaryText: Color(0xFF5F6E5E),
+    surface: Color(0xFFF0F6ED),
+    controlBar: Color(0xFFDDE9D8),
+    controlFill: Color(0xFFC9DBC2),
+    accent: Color(0xFF527451),
+    onAccent: Color(0xFFFFFFFF),
+    border: Color(0xFFAFC2A9),
+    shadow: Color(0xFF213020),
+  );
+
   static const rose = ReaderThemePalette(
     id: 'rose',
     brightness: Brightness.light,
@@ -493,6 +509,7 @@ class ReaderThemes {
   static const List<ReaderThemePalette> _concreteBuiltins =
       <ReaderThemePalette>[
         day,
+        green,
         rose,
         parchment,
         navy,
