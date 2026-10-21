@@ -310,8 +310,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
-              ..translate(-offsetX, -offsetY)
-              ..scale(scale, scale),
+              ..translateByDouble(-offsetX, -offsetY, 0, 1)
+              ..scaleByDouble(scale, scale, 1, 1),
             child: Center(child: image),
           ),
         );
