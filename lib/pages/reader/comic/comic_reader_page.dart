@@ -1,8 +1,11 @@
-// 文件说明：漫画阅读页。支持垂直连贯 / 水平左滑 / 水平右滑三种翻页方向，
-// 自动裁白边，以及对齐 Perfect Viewer 的颜色校正（亮度/对比度/饱和度/色相/Gamma/反色/灰度）。
-// 技术要点：颜色校验收敛成单个 4x5 矩阵由 GPU 一次合成；白边在小图上检测后按比例换算，避免逐页解大图。
+// 文件说明：漫画阅读页，能力对齐 Perfect Viewer。
+// 支持：垂直连贯 / 水平左滑 / 水平右滑、双页扫描自动分割、双页跨页并排、
+// 分屏放大、白边裁剪、颜色校正、自动翻页、点击分区翻页。
+// 技术要点：源图先编排成「画面」，再配对成「屏」；每个画面按归一化 src 区域用
+// Transform 放大铺满，颜色校验收敛为单个 4x5 矩阵交给 GPU。
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -27,16 +30,21 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
-  final ValueNotifier<int> _currentPage = ValueNotifier<int>(0);
+  final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   final Map<int, Rect?> _cropRects = <int, Rect?>{};
   final Set<int> _cropPending = <int>{};
+  final _ComicImageCache _imageCache = _ComicImageCache();
 
-  List<String> _pages = const <String>[];
+  List<String> _images = const <String>[];
+  Map<String, double> _aspects = const <String, double>{};
+  List<ComicFrame> _frames = const <ComicFrame>[];
+  List<ComicSpread> _spreads = const <ComicSpread>[];
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
   double _viewport = 0;
   Timer? _saveDebounce;
+  Timer? _autoTurnTimer;
 
   @override
   void initState() {
@@ -48,10 +56,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   @override
   void dispose() {
     _saveDebounce?.cancel();
+    _autoTurnTimer?.cancel();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     _pageController.dispose();
-    _currentPage.dispose();
+    _currentIndex.dispose();
+    _imageCache.dispose();
     _saveProgress();
     super.dispose();
   }
@@ -77,22 +87,54 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           p.basename(b.path),
         ),
       );
-      _pages = files.map((file) => file.path).toList(growable: false);
+      _images = files.map((file) => file.path).toList(growable: false);
     }
-    final start = widget.book.currentPage.clamp(
-      0,
-      _pages.isEmpty ? 0 : _pages.length - 1,
-    );
-    _currentPage.value = start;
+    // 只有开启双页分割时才需要宽高比，避免几百页漫画白等一轮探测。
+    _aspects = _settings.splitDoublePage
+        ? await ComicPageComposer.probeAspects(_images)
+        : <String, double>{};
+    _rebuildSpreads();
+    _currentIndex.value = _indexForLogicalPage(widget.book.currentPage);
     if (!mounted) return;
     setState(() => _loading = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _jumpTo(start));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _jumpTo(_currentIndex.value),
+    );
+    _restartAutoTurn();
+  }
+
+  // ---------------------------------------------------------- 页面编排
+
+  void _rebuildSpreads() {
+    _frames = ComicPageComposer.expandFrames(
+      paths: _images,
+      aspects: _aspects,
+      settings: _settings,
+    );
+    _spreads = ComicPageComposer.composeSpreads(
+      frames: _frames,
+      settings: _settings,
+    );
+  }
+
+  int _indexForLogicalPage(int logicalPage) {
+    if (_spreads.isEmpty) return 0;
+    for (var index = 0; index < _spreads.length; index++) {
+      if (_spreads[index].logicalPage >= logicalPage) return index;
+    }
+    return _spreads.length - 1;
+  }
+
+  int get _currentLogicalPage {
+    if (_spreads.isEmpty) return 0;
+    final index = _currentIndex.value.clamp(0, _spreads.length - 1);
+    return _spreads[index].logicalPage;
   }
 
   // ---------------------------------------------------------------- 翻页
 
   void _jumpTo(int index) {
-    if (_pages.isEmpty) return;
+    if (_spreads.isEmpty) return;
     if (_settings.direction.isHorizontal) {
       if (_pageController.hasClients) _pageController.jumpToPage(index);
       return;
@@ -108,18 +150,18 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   void _handleScroll() {
     if (_settings.direction.isHorizontal) return;
-    if (_viewport <= 0 || _pages.isEmpty) return;
+    if (_viewport <= 0 || _spreads.isEmpty) return;
     final offset = _scrollController.position.pixels + _viewport * 0.5;
-    final index = (offset / _viewport).floor().clamp(0, _pages.length - 1);
-    if (index != _currentPage.value) {
-      _currentPage.value = index;
+    final index = (offset / _viewport).floor().clamp(0, _spreads.length - 1);
+    if (index != _currentIndex.value) {
+      _currentIndex.value = index;
       _scheduleSave();
     }
   }
 
-  void _goToPage(int index) {
-    if (_pages.isEmpty) return;
-    final target = index.clamp(0, _pages.length - 1);
+  void _goTo(int index) {
+    if (_spreads.isEmpty) return;
+    final target = index.clamp(0, _spreads.length - 1);
     if (_settings.direction.isHorizontal) {
       if (_pageController.hasClients) {
         _pageController.animateToPage(
@@ -131,11 +173,15 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     } else {
       _jumpTo(target);
     }
-    if (target != _currentPage.value) {
-      _currentPage.value = target;
+    if (target != _currentIndex.value) {
+      _currentIndex.value = target;
       _scheduleSave();
     }
   }
+
+  void _nextPage() => _goTo(_currentIndex.value + 1);
+
+  void _previousPage() => _goTo(_currentIndex.value - 1);
 
   // ---------------------------------------------------------------- 进度
 
@@ -146,47 +192,90 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   Future<void> _saveProgress() async {
     final bookId = widget.book.id;
-    if (bookId == null || _pages.isEmpty) return;
-    final progress = (_currentPage.value + 1) / _pages.length;
+    if (bookId == null || _images.isEmpty) return;
+    final logical = _currentLogicalPage;
+    final progress = (logical + 1) / _images.length;
     try {
       await _dao.updateBookProgress(
         bookId,
-        _currentPage.value,
-        readingProgress: progress,
+        logical,
+        readingProgress: progress.clamp(0.0, 1.0).toDouble(),
       );
     } catch (_) {
       // 进度保存失败不打断阅读。
     }
   }
 
+  // ---------------------------------------------------------- 自动翻页
+
+  void _restartAutoTurn() {
+    _autoTurnTimer?.cancel();
+    if (!_settings.autoTurn) return;
+    _autoTurnTimer = Timer.periodic(
+      Duration(seconds: _settings.autoTurnSeconds.clamp(2, 60).toInt()),
+      (_) {
+        if (!mounted) return;
+        if (_currentIndex.value >= _spreads.length - 1) {
+          _autoTurnTimer?.cancel();
+          return;
+        }
+        _nextPage();
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------- 设置
+
   Future<void> _applySettings(ComicViewSettings next) async {
-    final directionChanged = next.direction != _settings.direction;
-    final current = _currentPage.value;
-    setState(() => _settings = next);
+    final needsRebuild =
+        next.layout != _settings.layout ||
+        next.splitDoublePage != _settings.splitDoublePage ||
+        next.splitScreen != _settings.splitScreen ||
+        next.direction != _settings.direction;
+    final anchorLogical = _currentLogicalPage;
+    final autoTurnChanged =
+        next.autoTurn != _settings.autoTurn ||
+        next.autoTurnSeconds != _settings.autoTurnSeconds;
+
+    setState(() {
+      _settings = next;
+      if (needsRebuild) {
+        _rebuildSpreads();
+        _currentIndex.value = _indexForLogicalPage(anchorLogical);
+      }
+    });
     await _settingsStore.save(next);
-    if (directionChanged) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _jumpTo(current));
+    if (needsRebuild) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _jumpTo(_currentIndex.value),
+      );
+    }
+    if (autoTurnChanged) _restartAutoTurn();
+    if (next.cropBorders) {
+      _ensureCropDetected(_currentLogicalPage);
     }
   }
 
   // ---------------------------------------------------------------- 白边
 
-  void _ensureCropDetected(int index) {
+  void _ensureCropDetected(int logicalPage) {
     if (!_settings.cropBorders) return;
-    if (_cropRects.containsKey(index) || _cropPending.contains(index)) return;
-    if (index < 0 || index >= _pages.length) return;
-    _cropPending.add(index);
-    _detectCrop(_pages[index]).then((rect) {
-      _cropPending.remove(index);
+    if (logicalPage < 0 || logicalPage >= _images.length) return;
+    if (_cropRects.containsKey(logicalPage) ||
+        _cropPending.contains(logicalPage)) {
+      return;
+    }
+    _cropPending.add(logicalPage);
+    _detectCrop(_images[logicalPage]).then((rect) {
+      _cropPending.remove(logicalPage);
       if (!mounted) return;
-      setState(() => _cropRects[index] = rect);
+      setState(() => _cropRects[logicalPage] = rect);
     });
   }
 
   Future<Rect?> _detectCrop(String path) async {
     try {
       final bytes = await File(path).readAsBytes();
-      // 用缩略尺寸检测，比例与全图一致，几百毫秒内完成。
       final codec = await ui.instantiateImageCodec(bytes, targetWidth: 360);
       final frame = await codec.getNextFrame();
       final image = frame.image;
@@ -210,7 +299,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       backgroundColor: Colors.black,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _pages.isEmpty
+          : _spreads.isEmpty
           ? _buildEmpty()
           : _buildContent(viewport),
     );
@@ -228,7 +317,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+            onTapUp: _handleTap,
             child: const SizedBox.expand(),
           ),
         ),
@@ -238,84 +327,122 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
+  void _handleTap(TapUpDetails details) {
+    final width = context.size?.width ?? 0;
+    if (width <= 0 || !_settings.tapToTurn) {
+      setState(() => _controlsVisible = !_controlsVisible);
+      return;
+    }
+    final dx = details.localPosition.dx;
+    // 日漫从右往左读，左侧是下一页；其余方向右侧是下一页。
+    final nextOnLeft = _settings.direction.reversed;
+    if (dx < width * 0.33) {
+      if (nextOnLeft) {
+        _nextPage();
+      } else {
+        _previousPage();
+      }
+      return;
+    }
+    if (dx > width * 0.67) {
+      if (nextOnLeft) {
+        _previousPage();
+      } else {
+        _nextPage();
+      }
+      return;
+    }
+    setState(() => _controlsVisible = !_controlsVisible);
+  }
+
   Widget _buildVertical(double viewport) {
     return ListView.builder(
       controller: _scrollController,
-      itemCount: _pages.length,
+      itemCount: _spreads.length,
       itemExtent: viewport,
-      itemBuilder: (context, index) => _buildPage(index),
+      itemBuilder: (context, index) => _buildSpread(index),
     );
   }
 
   Widget _buildHorizontal() {
     return PageView.builder(
       controller: _pageController,
-      // 日漫方向：向右滑进入下一页。
       reverse: _settings.direction.reversed,
-      itemCount: _pages.length,
+      itemCount: _spreads.length,
       onPageChanged: (index) {
-        if (index != _currentPage.value) {
-          _currentPage.value = index;
+        if (index != _currentIndex.value) {
+          _currentIndex.value = index;
           _scheduleSave();
         }
       },
-      itemBuilder: (context, index) => _buildPage(index),
+      itemBuilder: (context, index) => _buildSpread(index),
     );
   }
 
-  Widget _buildPage(int index) {
-    _ensureCropDetected(index);
-    final rect = _settings.cropBorders ? _cropRects[index] : null;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        Widget image = Image.file(
-          File(_pages[index]),
-          fit: BoxFit.contain,
-          cacheWidth: 1440,
-          errorBuilder: (_, _, _) => const Icon(
-            Icons.broken_image_outlined,
-            color: Colors.white54,
-            size: 48,
-          ),
+  Widget _buildSpread(int index) {
+    if (index < 0 || index >= _spreads.length) {
+      return const SizedBox.shrink();
+    }
+    final spread = _spreads[index];
+    _ensureCropDetected(spread.logicalPage);
+    final left = spread.left;
+    final right = spread.right;
+    if (left != null) _ensureCropDetected(left.logicalPage);
+    if (right != null) _ensureCropDetected(right.logicalPage);
+
+    final children = <Widget>[];
+    if (left != null) children.add(Expanded(child: _buildFrame(left)));
+    if (right != null) children.add(Expanded(child: _buildFrame(right)));
+    return Row(children: children);
+  }
+
+  Widget _buildFrame(ComicFrame frame) {
+    // 合并「双页切分 / 分屏」的 src 与自动白边裁剪结果。
+    var src = frame.src;
+    if (_settings.cropBorders) {
+      final crop = _cropRects[frame.logicalPage];
+      if (crop != null) {
+        final combined = Rect.fromLTRB(
+          math.max(src.left, crop.left),
+          math.max(src.top, crop.top),
+          math.min(src.right, crop.right),
+          math.min(src.bottom, crop.bottom),
         );
-        if (_settings.hasColorAdjust) {
-          image = ColorFiltered(
-            colorFilter: ColorFilter.matrix(
-              ComicColorMatrix.fromSettings(_settings),
-            ),
-            child: image,
-          );
+        if (combined.width > 0.05 && combined.height > 0.05) {
+          src = combined;
         }
-        if (rect == null) {
-          return InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            child: Center(child: image),
-          );
-        }
-        // 把内容区域放大到铺满，保持比例（取两个方向中较大的放大倍数）。
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        final contentWidth = rect.width * width;
-        final contentHeight = rect.height * height;
-        if (contentWidth <= 0 || contentHeight <= 0) {
-          return Center(child: image);
-        }
-        final scaleX = width / contentWidth;
-        final scaleY = height / contentHeight;
-        final scale = scaleX > scaleY ? scaleX : scaleY;
-        final offsetX = ((rect.left + rect.right) / 2 - 0.5) * width * scale;
-        final offsetY = ((rect.top + rect.bottom) / 2 - 0.5) * height * scale;
-        return ClipRect(
-          child: Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..translateByDouble(-offsetX, -offsetY, 0, 1)
-              ..scaleByDouble(scale, scale, 1, 1),
-            child: Center(child: image),
+      }
+    }
+
+    final image = _imageCache.get(frame.imagePath);
+    if (image == null) {
+      _imageCache.load(frame.imagePath).then((_) {
+        if (mounted) setState(() {});
+      });
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    final matrix = _settings.hasColorAdjust
+        ? ComicColorMatrix.fromSettings(_settings)
+        : null;
+    return ClipRect(
+      child: SizedBox.expand(
+        child: CustomPaint(
+          painter: _ComicFramePainter(
+            image: image,
+            src: src,
+            matrix: matrix,
           ),
-        );
-      },
+          isComplex: true,
+          willChange: false,
+        ),
+      ),
     );
   }
 
@@ -359,20 +486,26 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
               style: const TextStyle(fontSize: 16),
             ),
             ValueListenableBuilder<int>(
-              valueListenable: _currentPage,
-              builder: (context, current, _) => Text(
-                '${current + 1} / ${_pages.length}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.75),
-                ),
-              ),
+              valueListenable: _currentIndex,
+              builder: (context, index, _) {
+                final logical = _spreads.isEmpty
+                    ? 0
+                    : _spreads[index.clamp(0, _spreads.length - 1)]
+                          .logicalPage;
+                return Text(
+                  '${logical + 1} / ${_images.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.75),
+                  ),
+                );
+              },
             ),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: '显示设置',
+            tooltip: '阅读设置',
             icon: const Icon(Icons.tune_rounded),
             onPressed: _showSettings,
           ),
@@ -382,6 +515,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildBottomBar() {
+    final last = _spreads.length - 1;
     return Positioned(
       left: 0,
       right: 0,
@@ -394,18 +528,14 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ValueListenableBuilder<int>(
-                valueListenable: _currentPage,
-                builder: (context, current, _) => Slider(
-                  value: current.toDouble().clamp(
+                valueListenable: _currentIndex,
+                builder: (context, index, _) => Slider(
+                  value: index.toDouble().clamp(
                     0.0,
-                    (_pages.length - 1) > 0
-                        ? (_pages.length - 1).toDouble()
-                        : 1.0,
-                  ),
-                  max: (_pages.length - 1) > 1
-                      ? (_pages.length - 1).toDouble()
-                      : 1.0,
-                  onChanged: (value) => _goToPage(value.round()),
+                    last > 0 ? last.toDouble() : 1.0,
+                  ).toDouble(),
+                  max: last > 1 ? last.toDouble() : 1.0,
+                  onChanged: (value) => _goTo(value.round()),
                 ),
               ),
               Row(
@@ -413,14 +543,14 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                   IconButton(
                     icon: const Icon(Icons.skip_previous),
                     color: Colors.white,
-                    onPressed: () => _goToPage(_currentPage.value - 1),
+                    onPressed: _previousPage,
                   ),
                   Expanded(
                     child: Center(
                       child: ValueListenableBuilder<int>(
-                        valueListenable: _currentPage,
-                        builder: (context, current, _) => Text(
-                          '${current + 1} / ${_pages.length}',
+                        valueListenable: _currentIndex,
+                        builder: (context, index, _) => Text(
+                          '${index + 1} / ${_spreads.length}',
                           style: const TextStyle(color: Colors.white),
                         ),
                       ),
@@ -429,7 +559,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                   IconButton(
                     icon: const Icon(Icons.skip_next),
                     color: Colors.white,
-                    onPressed: () => _goToPage(_currentPage.value + 1),
+                    onPressed: _nextPage,
                   ),
                 ],
               ),
@@ -440,7 +570,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
-  // ---------------------------------------------------------------- 设置面板
+  // ------------------------------------------------------------ 设置面板
 
   Future<void> _showSettings() async {
     await showModalBottomSheet<void>(
@@ -479,13 +609,34 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                   ],
                 ),
                 Slider(
-                  value: value.clamp(min, max),
+                  value: value.clamp(min, max).toDouble(),
                   min: min,
                   max: max,
                   divisions: divisions,
                   onChanged: onChanged,
                 ),
               ],
+            );
+          }
+
+          Widget switchTile({
+            required String title,
+            required String subtitle,
+            required bool value,
+            required ValueChanged<bool> onChanged,
+          }) {
+            return SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: value,
+              onChanged: onChanged,
+              title: Text(title, style: textStyle),
+              subtitle: Text(
+                subtitle,
+                style: textStyle.copyWith(
+                  fontSize: 12,
+                  color: Colors.white54,
+                ),
+              ),
             );
           }
 
@@ -522,7 +673,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
                   Text(
                     '翻页方向',
                     style: textStyle.copyWith(fontWeight: FontWeight.w600),
@@ -541,25 +691,71 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
+                  Text(
+                    '版面',
+                    style: textStyle.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final layout in ComicPageLayout.values)
+                        ChoiceChip(
+                          label: Text(layout.label),
+                          selected: _settings.layout == layout,
+                          onSelected: (_) =>
+                              update(_settings.copyWith(layout: layout)),
+                        ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24),
+                  switchTile(
+                    title: '自动分割双页',
+                    subtitle: '横向宽图视为双页扫描，自动切成左右两页',
+                    value: _settings.splitDoublePage,
+                    onChanged: (value) =>
+                        update(_settings.copyWith(splitDoublePage: value)),
+                  ),
+                  switchTile(
+                    title: '分屏放大',
+                    subtitle: '把一页横切成上下两半，小屏也能看清',
+                    value: _settings.splitScreen,
+                    onChanged: (value) =>
+                        update(_settings.copyWith(splitScreen: value)),
+                  ),
+                  switchTile(
+                    title: '裁掉白边',
+                    subtitle: '自动识别四周空白并放大画面',
                     value: _settings.cropBorders,
-                    onChanged: (value) {
-                      update(_settings.copyWith(cropBorders: value));
-                      if (value) {
-                        _cropRects.clear();
-                        _ensureCropDetected(_currentPage.value);
-                      }
-                    },
-                    title: Text('裁掉白边', style: textStyle),
-                    subtitle: Text(
-                      '自动识别页面四周空白并放大画面',
-                      style: textStyle.copyWith(
-                        fontSize: 12,
-                        color: Colors.white54,
+                    onChanged: (value) =>
+                        update(_settings.copyWith(cropBorders: value)),
+                  ),
+                  switchTile(
+                    title: '点击翻页',
+                    subtitle: '点屏幕左右区域翻页，中间显隐工具栏',
+                    value: _settings.tapToTurn,
+                    onChanged: (value) =>
+                        update(_settings.copyWith(tapToTurn: value)),
+                  ),
+                  switchTile(
+                    title: '自动翻页',
+                    subtitle: '按设定间隔自动往后翻',
+                    value: _settings.autoTurn,
+                    onChanged: (value) =>
+                        update(_settings.copyWith(autoTurn: value)),
+                  ),
+                  if (_settings.autoTurn)
+                    slider(
+                      label: '翻页间隔',
+                      value: _settings.autoTurnSeconds.toDouble(),
+                      min: 2,
+                      max: 30,
+                      divisions: 28,
+                      valueLabel: '${_settings.autoTurnSeconds} 秒',
+                      onChanged: (v) => update(
+                        _settings.copyWith(autoTurnSeconds: v.round()),
                       ),
                     ),
-                  ),
                   const Divider(color: Colors.white24),
                   Text(
                     '颜色校正',
@@ -610,7 +806,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                     max: 200,
                     divisions: 30,
                     valueLabel: '${(_settings.gamma * 100).round()}%',
-                    onChanged: (v) => update(_settings.copyWith(gamma: v / 100)),
+                    onChanged: (v) =>
+                        update(_settings.copyWith(gamma: v / 100)),
                   ),
                   const SizedBox(height: 4),
                   Wrap(
@@ -637,5 +834,88 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         },
       ),
     );
+  }
+}
+
+/// 漫画画面绘制器：按归一化 src 区域把图片画进给定尺寸，保持比例并居中。
+class _ComicFramePainter extends CustomPainter {
+  const _ComicFramePainter({
+    required this.image,
+    required this.src,
+    required this.matrix,
+  });
+
+  final ui.Image image;
+  final Rect src;
+  final List<double>? matrix;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final imageWidth = image.width.toDouble();
+    final imageHeight = image.height.toDouble();
+    final srcPixels = Rect.fromLTRB(
+      (src.left * imageWidth).clamp(0.0, imageWidth),
+      (src.top * imageHeight).clamp(0.0, imageHeight),
+      (src.right * imageWidth).clamp(0.0, imageWidth),
+      (src.bottom * imageHeight).clamp(0.0, imageHeight),
+    );
+    if (srcPixels.width <= 0 || srcPixels.height <= 0) return;
+
+    final fitted = applyBoxFit(BoxFit.contain, srcPixels.size, size);
+    final destination = Alignment.center.inscribe(
+      fitted.destination,
+      Offset.zero & size,
+    );
+    final paint = Paint()..filterQuality = FilterQuality.medium;
+    final adjustment = matrix;
+    if (adjustment != null && adjustment.length == 20) {
+      paint.colorFilter = ColorFilter.matrix(adjustment);
+    }
+    canvas.drawImageRect(image, srcPixels, destination, paint);
+  }
+
+  @override
+  bool shouldRepaint(_ComicFramePainter oldDelegate) =>
+      oldDelegate.image != image ||
+      oldDelegate.src != src ||
+      !listEquals(oldDelegate.matrix, matrix);
+}
+
+/// 漫画页面图片缓存：保留最近若干张已解码图片，避免滚动时反复解码。
+class _ComicImageCache {
+  static const int _maxEntries = 8;
+
+  final Map<String, ui.Image> _ready = <String, ui.Image>{};
+  final Set<String> _pending = <String>{};
+
+  ui.Image? get(String path) => _ready[path];
+
+  Future<void> load(String path) async {
+    if (_ready.containsKey(path) || _pending.contains(path)) return;
+    _pending.add(path);
+    try {
+      final bytes = await File(path).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 1600);
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      _ready[path] = frame.image;
+      while (_ready.length > _maxEntries) {
+        final key = _ready.keys.first;
+        _ready.remove(key)?.dispose();
+      }
+    } catch (_) {
+      // 单张解码失败不影响其它页。
+    } finally {
+      _pending.remove(path);
+    }
+  }
+
+  void dispose() {
+    for (final image in _ready.values) {
+      image.dispose();
+    }
+    _ready.clear();
+    _pending.clear();
   }
 }

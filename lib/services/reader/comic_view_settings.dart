@@ -1,6 +1,8 @@
-// 文件说明：漫画阅读的视图设置（翻页方向 / 白边裁剪 / 颜色校正）及其持久化。
-// 技术要点：颜色校正合成单个 4x5 颜色矩阵，交给 GPU 一次完成，不额外增加绘制 pass。
+// 文件说明：漫画阅读的视图设置与页面编排，能力对齐 Perfect Viewer。
+// 覆盖：翻页方向、双页扫描自动分割、双页跨页并排、分屏缩放、白边裁剪、颜色校正、
+// 自动翻页、点击分区翻页。颜色校正合成单个 4x5 矩阵由 GPU 一次完成。
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -31,12 +33,28 @@ extension ComicPageDirectionLabel on ComicPageDirection {
   bool get reversed => this == ComicPageDirection.horizontalRight;
 }
 
-/// 漫画视图设置。颜色参数与 Perfect Viewer 的调整项对齐。
+/// 版面：单页 / 双页并排。
+enum ComicPageLayout {
+  single('单页'),
+  doublePage('双页并排');
+
+  const ComicPageLayout(this.label);
+
+  final String label;
+}
+
+/// 漫画视图设置。
 @immutable
 class ComicViewSettings {
   const ComicViewSettings({
     this.direction = ComicPageDirection.vertical,
+    this.layout = ComicPageLayout.single,
     this.cropBorders = false,
+    this.splitDoublePage = false,
+    this.splitScreen = false,
+    this.autoTurn = false,
+    this.autoTurnSeconds = 6,
+    this.tapToTurn = true,
     this.brightness = 0,
     this.contrast = 1,
     this.saturation = 1,
@@ -47,23 +65,37 @@ class ComicViewSettings {
   });
 
   final ComicPageDirection direction;
+  final ComicPageLayout layout;
 
   /// 自动裁掉页面四周的白边。
   final bool cropBorders;
 
-  /// -100 ~ 100
+  /// 横向宽图视为双页扫描，自动切成左右两页分别翻。
+  final bool splitDoublePage;
+
+  /// 分屏：把一页横切成上下两半，在小屏上放大阅读。
+  final bool splitScreen;
+
+  /// 自动翻页。
+  final bool autoTurn;
+  final int autoTurnSeconds;
+
+  /// 点击屏幕左右区域翻页（中间区域显隐控件）。
+  final bool tapToTurn;
+
+  /// 亮度 -100 ~ 100
   final double brightness;
 
-  /// 50 ~ 200（百分比）
+  /// 对比度 50 ~ 200（百分比）
   final double contrast;
 
-  /// 0 ~ 200（百分比）
+  /// 饱和度 0 ~ 200（百分比）
   final double saturation;
 
-  /// -180 ~ 180（度）
+  /// 色相 -180 ~ 180（度）
   final double hue;
 
-  /// 50 ~ 200（百分比）
+  /// Gamma 50 ~ 200（百分比）
   final double gamma;
 
   final bool invert;
@@ -80,7 +112,13 @@ class ComicViewSettings {
 
   ComicViewSettings copyWith({
     ComicPageDirection? direction,
+    ComicPageLayout? layout,
     bool? cropBorders,
+    bool? splitDoublePage,
+    bool? splitScreen,
+    bool? autoTurn,
+    int? autoTurnSeconds,
+    bool? tapToTurn,
     double? brightness,
     double? contrast,
     double? saturation,
@@ -91,7 +129,13 @@ class ComicViewSettings {
   }) {
     return ComicViewSettings(
       direction: direction ?? this.direction,
+      layout: layout ?? this.layout,
       cropBorders: cropBorders ?? this.cropBorders,
+      splitDoublePage: splitDoublePage ?? this.splitDoublePage,
+      splitScreen: splitScreen ?? this.splitScreen,
+      autoTurn: autoTurn ?? this.autoTurn,
+      autoTurnSeconds: autoTurnSeconds ?? this.autoTurnSeconds,
+      tapToTurn: tapToTurn ?? this.tapToTurn,
       brightness: brightness ?? this.brightness,
       contrast: contrast ?? this.contrast,
       saturation: saturation ?? this.saturation,
@@ -104,7 +148,13 @@ class ComicViewSettings {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'direction': direction.name,
+    'layout': layout.name,
     'cropBorders': cropBorders,
+    'splitDoublePage': splitDoublePage,
+    'splitScreen': splitScreen,
+    'autoTurn': autoTurn,
+    'autoTurnSeconds': autoTurnSeconds,
+    'tapToTurn': tapToTurn,
     'brightness': brightness,
     'contrast': contrast,
     'saturation': saturation,
@@ -122,12 +172,28 @@ class ComicViewSettings {
       return ComicPageDirection.vertical;
     }
 
+    ComicPageLayout parseLayout(Object? value) {
+      for (final item in ComicPageLayout.values) {
+        if (item.name == value) return item;
+      }
+      return ComicPageLayout.single;
+    }
+
     double asDouble(Object? value, double fallback) =>
         value is num ? value.toDouble() : fallback;
 
+    int asInt(Object? value, int fallback) =>
+        value is num ? value.toInt() : fallback;
+
     return ComicViewSettings(
       direction: parseDirection(json['direction']),
+      layout: parseLayout(json['layout']),
       cropBorders: json['cropBorders'] == true,
+      splitDoublePage: json['splitDoublePage'] == true,
+      splitScreen: json['splitScreen'] == true,
+      autoTurn: json['autoTurn'] == true,
+      autoTurnSeconds: asInt(json['autoTurnSeconds'], 6).clamp(2, 60).toInt(),
+      tapToTurn: json['tapToTurn'] != false,
       brightness: asDouble(json['brightness'], 0),
       contrast: asDouble(json['contrast'], 1),
       saturation: asDouble(json['saturation'], 1),
@@ -143,7 +209,7 @@ class ComicViewSettings {
 class ComicViewSettingsStore {
   const ComicViewSettingsStore();
 
-  static const String _key = 'comic_view_settings_v1';
+  static const String _key = 'comic_view_settings_v2';
 
   Future<ComicViewSettings> load() async {
     try {
@@ -168,11 +234,204 @@ class ComicViewSettingsStore {
   }
 }
 
+/// 一个待显示的画面：同一张源图可能被切成多个画面（双页扫描 / 分屏）。
+@immutable
+class ComicFrame {
+  const ComicFrame({
+    required this.imagePath,
+    required this.src,
+    required this.logicalPage,
+    required this.imageAspect,
+  });
+
+  final String imagePath;
+
+  /// 源图内的归一化裁剪区域（0..1）。
+  final Rect src;
+
+  /// 对应的源图序号，用于记录阅读进度。
+  final int logicalPage;
+
+  /// 源图宽高比（宽 / 高）。
+  final double imageAspect;
+}
+
+/// 屏幕上一次呈现的内容：单页或双页并排。
+@immutable
+class ComicSpread {
+  const ComicSpread({
+    required this.logicalPage,
+    this.left,
+    this.right,
+  });
+
+  final int logicalPage;
+  final ComicFrame? left;
+  final ComicFrame? right;
+}
+
+/// 页面编排：把源图列表按设置展开成可翻的画面。
+class ComicPageComposer {
+  ComicPageComposer._();
+
+  /// 宽高比大于该值的图视为「双页扫描」。
+  static const double doublePageAspect = 1.15;
+
+  static const Rect fullRect = Rect.fromLTRB(0, 0, 1, 1);
+
+  /// 读取图片宽高比（只解码极小尺寸，成本很低）。
+  static Future<Map<String, double>> probeAspects(List<String> paths) async {
+    final result = <String, double>{};
+    for (final path in paths) {
+      try {
+        final bytes = await File(path).readAsBytes();
+        final codec = await ui.instantiateImageCodec(bytes, targetWidth: 32);
+        final frame = await codec.getNextFrame();
+        final image = frame.image;
+        final width = image.width;
+        final height = image.height;
+        image.dispose();
+        codec.dispose();
+        if (width > 0 && height > 0) {
+          result[path] = width / height;
+        }
+      } catch (_) {
+        // 忽略单张图的探测失败。
+      }
+    }
+    return result;
+  }
+
+  /// 把源图展开成画面列表。
+  static List<ComicFrame> expandFrames({
+    required List<String> paths,
+    required Map<String, double> aspects,
+    required ComicViewSettings settings,
+  }) {
+    final frames = <ComicFrame>[];
+    for (var index = 0; index < paths.length; index++) {
+      final path = paths[index];
+      final aspect = aspects[path] ?? 0.7;
+      // 双页扫描：横向宽图切成左右两半。
+      if (settings.splitDoublePage && aspect > doublePageAspect) {
+        const leftHalf = Rect.fromLTRB(0, 0, 0.5, 1);
+        const rightHalf = Rect.fromLTRB(0.5, 0, 1, 1);
+        if (settings.direction.reversed) {
+          // 日漫：从右往左读，先看右半。
+          frames.add(
+            ComicFrame(
+              imagePath: path,
+              src: rightHalf,
+              logicalPage: index,
+              imageAspect: aspect,
+            ),
+          );
+          frames.add(
+            ComicFrame(
+              imagePath: path,
+              src: leftHalf,
+              logicalPage: index,
+              imageAspect: aspect,
+            ),
+          );
+        } else {
+          frames.add(
+            ComicFrame(
+              imagePath: path,
+              src: leftHalf,
+              logicalPage: index,
+              imageAspect: aspect,
+            ),
+          );
+          frames.add(
+            ComicFrame(
+              imagePath: path,
+              src: rightHalf,
+              logicalPage: index,
+              imageAspect: aspect,
+            ),
+          );
+        }
+        continue;
+      }
+      frames.add(
+        ComicFrame(
+          imagePath: path,
+          src: fullRect,
+          logicalPage: index,
+          imageAspect: aspect,
+        ),
+      );
+    }
+
+    if (!settings.splitScreen) return frames;
+
+    // 分屏：每个画面再切成上下两半。
+    final split = <ComicFrame>[];
+    for (final frame in frames) {
+      final rect = frame.src;
+      final midY = rect.top + rect.height / 2;
+      split.add(
+        ComicFrame(
+          imagePath: frame.imagePath,
+          src: Rect.fromLTRB(rect.left, rect.top, rect.right, midY),
+          logicalPage: frame.logicalPage,
+          imageAspect: frame.imageAspect,
+        ),
+      );
+      split.add(
+        ComicFrame(
+          imagePath: frame.imagePath,
+          src: Rect.fromLTRB(rect.left, midY, rect.right, rect.bottom),
+          logicalPage: frame.logicalPage,
+          imageAspect: frame.imageAspect,
+        ),
+      );
+    }
+    return split;
+  }
+
+  /// 把画面两两配对成「屏」。
+  static List<ComicSpread> composeSpreads({
+    required List<ComicFrame> frames,
+    required ComicViewSettings settings,
+  }) {
+    if (settings.layout == ComicPageLayout.single || frames.isEmpty) {
+      return frames
+          .map((frame) => ComicSpread(logicalPage: frame.logicalPage, left: frame))
+          .toList(growable: false);
+    }
+    final spreads = <ComicSpread>[];
+    for (var index = 0; index < frames.length; index += 2) {
+      final first = frames[index];
+      final second = index + 1 < frames.length ? frames[index + 1] : null;
+      if (settings.direction.reversed) {
+        // 日漫：先读的在右边。
+        spreads.add(
+          ComicSpread(
+            logicalPage: first.logicalPage,
+            right: first,
+            left: second,
+          ),
+        );
+      } else {
+        spreads.add(
+          ComicSpread(
+            logicalPage: first.logicalPage,
+            left: first,
+            right: second,
+          ),
+        );
+      }
+    }
+    return spreads;
+  }
+}
+
 /// 把视图设置合成一个 4x5 颜色矩阵。
 class ComicColorMatrix {
   ComicColorMatrix._();
 
-  /// 单位矩阵。
   static const List<double> identity = <double>[
     1, 0, 0, 0, 0, //
     0, 1, 0, 0, 0, //
@@ -271,11 +530,9 @@ class ComicColorMatrix {
     0, 0, 0, 1, 0, //
   ];
 
-  /// Gamma 校正用幂函数近似：以 1/gamma 的查表方式映射到对比度与亮度组合。
+  /// Gamma 用等效的对比度 + 亮度折中近似（幂函数无法用线性矩阵精确表达）。
   static List<double> gammaMatrix(double gamma) {
     if ((gamma - 1).abs() < 0.01) return identity;
-    // 幂函数无法用线性矩阵精确表达，这里用等效的对比度 + 亮度折中，
-    // 足以覆盖漫画提亮暗部 / 压暗高光的常见需求。
     final scale = 1 / gamma;
     final offset = 128 * (1 - scale);
     return <double>[
@@ -286,7 +543,6 @@ class ComicColorMatrix {
     ];
   }
 
-  /// 由视图设置合成最终矩阵。
   static List<double> fromSettings(ComicViewSettings settings) {
     var matrix = identity;
     if (settings.grayscale) {
@@ -314,7 +570,6 @@ class ComicColorMatrix {
   }
 
   static double _sin(double x) {
-    // 泰勒展开足够精确（-π..π）。
     var term = x;
     var sum = x;
     for (var i = 1; i <= 7; i++) {
@@ -339,9 +594,6 @@ class ComicColorMatrix {
 class ComicBorderCropper {
   ComicBorderCropper._();
 
-  /// 扫描图片边缘，找出非白内容范围。
-  ///
-  /// [threshold] 越大越激进（越容易把浅灰也算白边）。
   static Future<Rect?> detect(
     ui.Image image, {
     int threshold = 244,
@@ -357,7 +609,7 @@ class ComicBorderCropper {
 
     bool isContent(int x, int y) {
       final offset = (y * width + x) * 4;
-      if (offset + 2 >= bytes.length) return false;
+      if (offset + 3 >= bytes.length) return false;
       final r = bytes[offset];
       final g = bytes[offset + 1];
       final b = bytes[offset + 2];
@@ -427,7 +679,6 @@ class ComicBorderCropper {
       }
     }
 
-    // 几乎全白或几乎全幅时不做裁剪。
     final contentWidth = right - left;
     final contentHeight = bottom - top;
     if (contentWidth <= width * 0.15 || contentHeight <= height * 0.15) {
