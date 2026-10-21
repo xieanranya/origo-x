@@ -122,17 +122,17 @@ class ComicViewSettings {
       return ComicPageDirection.vertical;
     }
 
-    double num(Object? value, double fallback) =>
+    double asDouble(Object? value, double fallback) =>
         value is num ? value.toDouble() : fallback;
 
     return ComicViewSettings(
       direction: parseDirection(json['direction']),
       cropBorders: json['cropBorders'] == true,
-      brightness: num(json['brightness'], 0),
-      contrast: num(json['contrast'], 1),
-      saturation: num(json['saturation'], 1),
-      hue: num(json['hue'], 0),
-      gamma: num(json['gamma'], 1),
+      brightness: asDouble(json['brightness'], 0),
+      contrast: asDouble(json['contrast'], 1),
+      saturation: asDouble(json['saturation'], 1),
+      hue: asDouble(json['hue'], 0),
+      gamma: asDouble(json['gamma'], 1),
       invert: json['invert'] == true,
       grayscale: json['grayscale'] == true,
     );
