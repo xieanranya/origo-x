@@ -275,6 +275,7 @@
     "lib/services/books/comic_archive_service.dart",
     "lib/pages/reader/comic/pdf_reader_page.dart",
     "lib/services/reader/comic_view_settings.dart",
+    "lib/pages/reader/comic/comic_menu_panel.dart",
     "linux/.gitignore",
     "linux/CMakeLists.txt",
     "linux/flutter/CMakeLists.txt",

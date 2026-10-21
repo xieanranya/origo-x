@@ -1,8 +1,10 @@
-// 文件说明：漫画阅读页，能力对齐 Perfect Viewer。
-// 支持：垂直连贯 / 水平左滑 / 水平右滑、双页扫描自动分割、双页跨页并排、
-// 分屏放大、白边裁剪、颜色校正、自动翻页、点击分区翻页。
-// 技术要点：源图先编排成「画面」，再配对成「屏」；每个画面按归一化 src 区域用
-// Transform 放大铺满，颜色校验收敛为单个 4x5 矩阵交给 GPU。
+// 文件说明：漫画阅读页，界面与功能对齐 Perfect Viewer。
+// 垂直连贯 / 水平左滑（由左至右）/ 水平右滑（由右至左）；
+// 单页 / 双页 / 自动版面；符合宽度 / 符合高度 / 符合画面三种缩放；
+// 自动分割双页扫描、自动侦测白边、逐项颜色调整、背光与过滤蓝光、
+// 页面边界、空白封里、自动翻页、点击分区翻页。
+// 技术要点：垂直「符合宽度」用变高列表让画面宽度铺满屏幕；画面用 CustomPainter
+// 按归一化 src 直接绘制，颜色调整合成单个 4x5 矩阵交给 GPU。
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -11,11 +13,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../models/book.dart';
 import '../../../services/books/book_dao.dart';
 import '../../../services/books/comic_archive_service.dart';
 import '../../../services/reader/comic_view_settings.dart';
+import 'comic_menu_panel.dart';
 
 class ComicReaderPage extends StatefulWidget {
   const ComicReaderPage({super.key, required this.book});
@@ -31,6 +35,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   final Map<int, Rect?> _cropRects = <int, Rect?>{};
   final Set<int> _cropPending = <int>{};
@@ -38,11 +45,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   List<String> _images = const <String>[];
   Map<String, double> _aspects = const <String, double>{};
-  List<ComicFrame> _frames = const <ComicFrame>[];
   List<ComicSpread> _spreads = const <ComicSpread>[];
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
+  bool _landscape = false;
   double _viewport = 0;
   Timer? _saveDebounce;
   Timer? _autoTurnTimer;
@@ -51,6 +58,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
+    _itemPositionsListener.itemPositions.addListener(_handlePositions);
     _loadAll();
   }
 
@@ -59,6 +67,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _saveDebounce?.cancel();
     _autoTurnTimer?.cancel();
     _scrollController.removeListener(_handleScroll);
+    _itemPositionsListener.itemPositions.removeListener(_handlePositions);
     _scrollController.dispose();
     _pageController.dispose();
     _currentIndex.dispose();
@@ -107,15 +116,20 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   // ---------------------------------------------------------- 页面编排
 
   void _rebuildSpreads() {
-    _frames = ComicPageComposer.expandFrames(
+    final frames = ComicPageComposer.expandFrames(
       paths: _images,
       aspects: _aspects,
       settings: _settings,
     );
-    _spreads = ComicPageComposer.composeSpreads(
-      frames: _frames,
+    final composed = ComicPageComposer.composeSpreads(
+      frames: frames,
       settings: _settings,
+      autoUseDouble: _landscape,
     );
+    // 空白封里：在最前面插入一屏空白。
+    _spreads = _settings.blankFirstPage
+        ? <ComicSpread>[const ComicSpread(logicalPage: 0), ...composed]
+        : composed;
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -132,12 +146,45 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return _spreads[index].logicalPage;
   }
 
+  /// 单帧在屏幕上应占的宽高比（已考虑双页切分区域）。
+  double _frameAspect(ComicFrame frame) {
+    final image = _imageCache.get(frame.imagePath);
+    final base = image != null && image.height > 0
+        ? image.width / image.height
+        : (frame.imageAspect > 0 ? frame.imageAspect : 0.7);
+    final widthRatio = frame.src.width <= 0 ? 1.0 : frame.src.width;
+    final heightRatio = frame.src.height <= 0 ? 1.0 : frame.src.height;
+    return base * (widthRatio / heightRatio);
+  }
+
+  /// 一屏的宽高比：双页并排时两页宽度相加。
+  double _spreadAspect(ComicSpread spread) {
+    final left = spread.left;
+    final right = spread.right;
+    if (left != null && right != null) {
+      return _frameAspect(left) + _frameAspect(right);
+    }
+    final only = left ?? right;
+    return only == null ? 1.0 : _frameAspect(only);
+  }
+
   // ---------------------------------------------------------------- 翻页
+
+  /// 垂直 + 符合宽度时，用变高列表（每页按图片比例撑开，宽度铺满）。
+  bool get _usesFitWidthList =>
+      !_settings.direction.isHorizontal &&
+      _settings.fitMode == ComicFitMode.fitWidth;
 
   void _jumpTo(int index) {
     if (_spreads.isEmpty) return;
     if (_settings.direction.isHorizontal) {
       if (_pageController.hasClients) _pageController.jumpToPage(index);
+      return;
+    }
+    if (_usesFitWidthList) {
+      if (_itemScrollController.isAttached) {
+        _itemScrollController.jumpTo(index: index);
+      }
       return;
     }
     if (_scrollController.hasClients && _viewport > 0) {
@@ -150,11 +197,31 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _handleScroll() {
-    if (_settings.direction.isHorizontal) return;
+    if (_settings.direction.isHorizontal || _usesFitWidthList) return;
     if (_viewport <= 0 || _spreads.isEmpty) return;
     final offset = _scrollController.position.pixels + _viewport * 0.5;
     final index = (offset / _viewport).floor().clamp(0, _spreads.length - 1);
     if (index != _currentIndex.value) {
+      _currentIndex.value = index;
+      _scheduleSave();
+    }
+  }
+
+  void _handlePositions() {
+    if (!_usesFitWidthList) return;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+    ItemPosition? best;
+    for (final position in positions) {
+      if (position.itemTrailingEdge <= 0 || position.itemLeadingEdge >= 1) {
+        continue;
+      }
+      if (best == null || position.itemLeadingEdge < best.itemLeadingEdge) {
+        best = position;
+      }
+    }
+    final index = best?.index;
+    if (index != null && index != _currentIndex.value) {
       _currentIndex.value = index;
       _scheduleSave();
     }
@@ -231,12 +298,17 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final needsRebuild =
         next.layout != _settings.layout ||
         next.splitDoublePage != _settings.splitDoublePage ||
-        next.splitScreen != _settings.splitScreen ||
-        next.direction != _settings.direction;
+        next.direction != _settings.direction ||
+        next.fitMode != _settings.fitMode ||
+        next.blankFirstPage != _settings.blankFirstPage;
     final anchorLogical = _currentLogicalPage;
     final autoTurnChanged =
         next.autoTurn != _settings.autoTurn ||
         next.autoTurnSeconds != _settings.autoTurnSeconds;
+
+    if (next.splitDoublePage && _aspects.isEmpty) {
+      _aspects = await ComicPageComposer.probeAspects(_images);
+    }
 
     setState(() {
       _settings = next;
@@ -252,9 +324,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
     }
     if (autoTurnChanged) _restartAutoTurn();
-    if (next.cropBorders) {
-      _ensureCropDetected(_currentLogicalPage);
-    }
+    if (next.cropBorders) _ensureCropDetected(_currentLogicalPage);
   }
 
   // ---------------------------------------------------------------- 白边
@@ -296,6 +366,22 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final media = MediaQuery.of(context);
     final viewport =
         media.size.height - media.padding.top - media.padding.bottom;
+    final landscape = media.size.width > media.size.height;
+    if (landscape != _landscape && !_loading) {
+      // 横竖屏切换影响「自动」版面，重建一次。
+      _landscape = landscape;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final anchor = _currentLogicalPage;
+        setState(() {
+          _rebuildSpreads();
+          _currentIndex.value = _indexForLogicalPage(anchor);
+        });
+      });
+    } else {
+      _landscape = landscape;
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: _loading
@@ -315,6 +401,33 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
               ? _buildHorizontal()
               : _buildVertical(viewport),
         ),
+        // 过滤蓝光：琥珀色蒙版；背光控制：黑色蒙版压暗整体。
+        if (_settings.blueLightFilter > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(
+                color: const Color(0xFFFF8A00).withValues(
+                  alpha: (_settings.blueLightFilter / 100 * 0.30).clamp(
+                    0.0,
+                    0.30,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (_settings.backlight < 100)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(
+                color: Colors.black.withValues(
+                  alpha: ((100 - _settings.backlight) / 100 * 0.72).clamp(
+                    0.0,
+                    0.72,
+                  ),
+                ),
+              ),
+            ),
+          ),
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -357,6 +470,20 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildVertical(double viewport) {
+    if (_usesFitWidthList) {
+      return ScrollablePositionedList.builder(
+        itemScrollController: _itemScrollController,
+        itemPositionsListener: _itemPositionsListener,
+        itemCount: _spreads.length,
+        itemBuilder: (context, index) => Padding(
+          padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
+          child: AspectRatio(
+            aspectRatio: _spreadAspect(_spreads[index]),
+            child: _buildSpread(index),
+          ),
+        ),
+      );
+    }
     return ListView.builder(
       controller: _scrollController,
       itemCount: _spreads.length,
@@ -376,7 +503,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           _scheduleSave();
         }
       },
-      itemBuilder: (context, index) => _buildSpread(index),
+      itemBuilder: (context, index) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: _settings.pageGap / 2),
+        child: _buildSpread(index),
+      ),
     );
   }
 
@@ -385,6 +515,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return const SizedBox.shrink();
     }
     final spread = _spreads[index];
+    if (spread.left == null && spread.right == null) {
+      // 空白封里。
+      return const ColoredBox(color: Colors.black);
+    }
     _ensureCropDetected(spread.logicalPage);
     final left = spread.left;
     final right = spread.right;
@@ -398,7 +532,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildFrame(ComicFrame frame) {
-    // 合并「双页切分 / 分屏」的 src 与自动白边裁剪结果。
+    // 合并「双页切分」的 src 与自动白边侦测结果。
     var src = frame.src;
     if (_settings.cropBorders) {
       final crop = _cropRects[frame.logicalPage];
@@ -432,6 +566,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final matrix = _settings.hasColorAdjust
         ? ComicColorMatrix.fromSettings(_settings)
         : null;
+    // 变高列表里容器比例已等于内容比例，用 fill 才能真正铺满宽度。
+    final fit = _usesFitWidthList ? BoxFit.fill : _boxFitForMode();
     return ClipRect(
       child: SizedBox.expand(
         child: CustomPaint(
@@ -439,6 +575,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             image: image,
             src: src,
             matrix: matrix,
+            fit: fit,
+            blur: _settings.blur,
           ),
           isComplex: true,
           willChange: false,
@@ -446,6 +584,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       ),
     );
   }
+
+  BoxFit _boxFitForMode() => switch (_settings.fitMode) {
+    ComicFitMode.fitWidth => BoxFit.fitWidth,
+    ComicFitMode.fitHeight => BoxFit.fitHeight,
+    ComicFitMode.contain => BoxFit.contain,
+  };
 
   Widget _buildEmpty() {
     return Center(
@@ -506,8 +650,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         ),
         actions: [
           IconButton(
-            tooltip: '阅读设置',
-            icon: const Icon(Icons.tune_rounded),
+            tooltip: '菜单',
+            icon: const Icon(Icons.menu_rounded),
             onPressed: _showSettings,
           ),
         ],
@@ -571,284 +715,52 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
-  // ------------------------------------------------------------ 设置面板
+  // ------------------------------------------------------------ 菜单面板
 
   Future<void> _showSettings() async {
-    await showModalBottomSheet<void>(
+    await showGeneralDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF15181A),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheet) {
-          void update(ComicViewSettings next) {
-            setSheet(() {});
-            unawaited(_applySettings(next));
-          }
-
-          final textStyle = TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 13,
-          );
-
-          Widget slider({
-            required String label,
-            required double value,
-            required double min,
-            required double max,
-            required int divisions,
-            required String valueLabel,
-            required ValueChanged<double> onChanged,
-          }) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(label, style: textStyle),
-                    const Spacer(),
-                    Text(valueLabel, style: textStyle.copyWith(fontSize: 12)),
-                  ],
-                ),
-                Slider(
-                  value: value.clamp(min, max).toDouble(),
-                  min: min,
-                  max: max,
-                  divisions: divisions,
-                  onChanged: onChanged,
-                ),
-              ],
-            );
-          }
-
-          Widget switchTile({
-            required String title,
-            required String subtitle,
-            required bool value,
-            required ValueChanged<bool> onChanged,
-          }) {
-            return SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: value,
-              onChanged: onChanged,
-              title: Text(title, style: textStyle),
-              subtitle: Text(
-                subtitle,
-                style: textStyle.copyWith(
-                  fontSize: 12,
-                  color: Colors.white54,
-                ),
-              ),
-            );
-          }
-
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        '阅读设置',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => update(
-                          _settings.copyWith(
-                            brightness: 0,
-                            contrast: 1,
-                            saturation: 1,
-                            hue: 0,
-                            gamma: 1,
-                            invert: false,
-                            grayscale: false,
-                          ),
-                        ),
-                        child: const Text('颜色复位'),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '翻页方向',
-                    style: textStyle.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final direction in ComicPageDirection.values)
-                        ChoiceChip(
-                          label: Text(direction.label),
-                          selected: _settings.direction == direction,
-                          onSelected: (_) =>
-                              update(_settings.copyWith(direction: direction)),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '版面',
-                    style: textStyle.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final layout in ComicPageLayout.values)
-                        ChoiceChip(
-                          label: Text(layout.label),
-                          selected: _settings.layout == layout,
-                          onSelected: (_) =>
-                              update(_settings.copyWith(layout: layout)),
-                        ),
-                    ],
-                  ),
-                  const Divider(color: Colors.white24),
-                  switchTile(
-                    title: '自动分割双页',
-                    subtitle: '横向宽图视为双页扫描，自动切成左右两页',
-                    value: _settings.splitDoublePage,
-                    onChanged: (value) =>
-                        update(_settings.copyWith(splitDoublePage: value)),
-                  ),
-                  switchTile(
-                    title: '分屏放大',
-                    subtitle: '把一页横切成上下两半，小屏也能看清',
-                    value: _settings.splitScreen,
-                    onChanged: (value) =>
-                        update(_settings.copyWith(splitScreen: value)),
-                  ),
-                  switchTile(
-                    title: '裁掉白边',
-                    subtitle: '自动识别四周空白并放大画面',
-                    value: _settings.cropBorders,
-                    onChanged: (value) =>
-                        update(_settings.copyWith(cropBorders: value)),
-                  ),
-                  switchTile(
-                    title: '点击翻页',
-                    subtitle: '点屏幕左右区域翻页，中间显隐工具栏',
-                    value: _settings.tapToTurn,
-                    onChanged: (value) =>
-                        update(_settings.copyWith(tapToTurn: value)),
-                  ),
-                  switchTile(
-                    title: '自动翻页',
-                    subtitle: '按设定间隔自动往后翻',
-                    value: _settings.autoTurn,
-                    onChanged: (value) =>
-                        update(_settings.copyWith(autoTurn: value)),
-                  ),
-                  if (_settings.autoTurn)
-                    slider(
-                      label: '翻页间隔',
-                      value: _settings.autoTurnSeconds.toDouble(),
-                      min: 2,
-                      max: 30,
-                      divisions: 28,
-                      valueLabel: '${_settings.autoTurnSeconds} 秒',
-                      onChanged: (v) => update(
-                        _settings.copyWith(autoTurnSeconds: v.round()),
-                      ),
-                    ),
-                  const Divider(color: Colors.white24),
-                  Text(
-                    '颜色校正',
-                    style: textStyle.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  slider(
-                    label: '亮度',
-                    value: _settings.brightness,
-                    min: -100,
-                    max: 100,
-                    divisions: 40,
-                    valueLabel: _settings.brightness.round().toString(),
-                    onChanged: (v) => update(_settings.copyWith(brightness: v)),
-                  ),
-                  slider(
-                    label: '对比度',
-                    value: _settings.contrast * 100,
-                    min: 50,
-                    max: 200,
-                    divisions: 30,
-                    valueLabel: '${(_settings.contrast * 100).round()}%',
-                    onChanged: (v) =>
-                        update(_settings.copyWith(contrast: v / 100)),
-                  ),
-                  slider(
-                    label: '饱和度',
-                    value: _settings.saturation * 100,
-                    min: 0,
-                    max: 200,
-                    divisions: 40,
-                    valueLabel: '${(_settings.saturation * 100).round()}%',
-                    onChanged: (v) =>
-                        update(_settings.copyWith(saturation: v / 100)),
-                  ),
-                  slider(
-                    label: '色相',
-                    value: _settings.hue,
-                    min: -180,
-                    max: 180,
-                    divisions: 36,
-                    valueLabel: '${_settings.hue.round()}°',
-                    onChanged: (v) => update(_settings.copyWith(hue: v)),
-                  ),
-                  slider(
-                    label: 'Gamma',
-                    value: _settings.gamma * 100,
-                    min: 50,
-                    max: 200,
-                    divisions: 30,
-                    valueLabel: '${(_settings.gamma * 100).round()}%',
-                    onChanged: (v) =>
-                        update(_settings.copyWith(gamma: v / 100)),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      FilterChip(
-                        label: const Text('反色'),
-                        selected: _settings.invert,
-                        onSelected: (value) =>
-                            update(_settings.copyWith(invert: value)),
-                      ),
-                      FilterChip(
-                        label: const Text('灰度'),
-                        selected: _settings.grayscale,
-                        onSelected: (value) =>
-                            update(_settings.copyWith(grayscale: value)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
+      barrierDismissible: true,
+      barrierLabel: '关闭',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      pageBuilder: (dialogContext, _, _) => ComicMenuPanel(
+        settings: _settings,
+        pageCount: _images.length,
+        spreadCount: _spreads.length,
+        currentLogicalPage: _currentLogicalPage,
+        bookTitle: widget.book.title,
+        bookPath: widget.book.filePath,
+        onSettingsChanged: (next) => unawaited(_applySettings(next)),
+        onJumpToPage: (page) {
+          if (_images.isEmpty) return;
+          final target = page.clamp(0, _images.length - 1);
+          _goTo(_indexForLogicalPage(target));
+        },
+        onCloseBook: () {
+          Navigator.of(dialogContext).pop();
+          Navigator.of(context).pop();
         },
       ),
     );
   }
 }
 
-/// 漫画画面绘制器：按归一化 src 区域把图片画进给定尺寸，保持比例并居中。
+/// 漫画画面绘制器：按归一化 src 区域把图片画进给定尺寸。
 class _ComicFramePainter extends CustomPainter {
   const _ComicFramePainter({
     required this.image,
     required this.src,
     required this.matrix,
+    required this.fit,
+    required this.blur,
   });
 
   final ui.Image image;
   final Rect src;
   final List<double>? matrix;
+  final BoxFit fit;
+  final double blur;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -863,7 +775,7 @@ class _ComicFramePainter extends CustomPainter {
     );
     if (srcPixels.width <= 0 || srcPixels.height <= 0) return;
 
-    final fitted = applyBoxFit(BoxFit.contain, srcPixels.size, size);
+    final fitted = applyBoxFit(fit, srcPixels.size, size);
     final destination = Alignment.center.inscribe(
       fitted.destination,
       Offset.zero & size,
@@ -873,6 +785,9 @@ class _ComicFramePainter extends CustomPainter {
     if (adjustment != null && adjustment.length == 20) {
       paint.colorFilter = ColorFilter.matrix(adjustment);
     }
+    if (blur > 0) {
+      paint.imageFilter = ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur);
+    }
     canvas.drawImageRect(image, srcPixels, destination, paint);
   }
 
@@ -880,6 +795,8 @@ class _ComicFramePainter extends CustomPainter {
   bool shouldRepaint(_ComicFramePainter oldDelegate) =>
       oldDelegate.image != image ||
       oldDelegate.src != src ||
+      oldDelegate.fit != fit ||
+      oldDelegate.blur != blur ||
       !listEquals(oldDelegate.matrix, matrix);
 }
 

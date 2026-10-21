@@ -36,9 +36,42 @@ extension ComicPageDirectionLabel on ComicPageDirection {
 /// 版面：单页 / 双页并排。
 enum ComicPageLayout {
   single('单页'),
-  doublePage('双页并排');
+  doublePage('双页并排'),
+  auto('自动');
 
   const ComicPageLayout(this.label);
+
+  final String label;
+}
+
+/// 屏幕方向（对应「屏幕方向」）。
+enum ComicScreenOrientation {
+  automatic('自动'),
+  portrait('直立'),
+  landscape('横向');
+
+  const ComicScreenOrientation(this.label);
+
+  final String label;
+}
+
+/// 界面主题（对应「界面主题」）。
+enum ComicInterfaceTheme {
+  light('亮色'),
+  dark('暗色');
+
+  const ComicInterfaceTheme(this.label);
+
+  final String label;
+}
+
+/// 缩放方式，对应 Perfect Viewer 的「缩放方式」。
+enum ComicFitMode {
+  fitWidth('符合宽度'),
+  fitHeight('符合高度'),
+  contain('符合画面');
+
+  const ComicFitMode(this.label);
 
   final String label;
 }
@@ -48,10 +81,10 @@ enum ComicPageLayout {
 class ComicViewSettings {
   const ComicViewSettings({
     this.direction = ComicPageDirection.vertical,
-    this.layout = ComicPageLayout.single,
-    this.cropBorders = false,
+    this.layout = ComicPageLayout.auto,
+    this.fitMode = ComicFitMode.fitWidth,
+    this.cropBorders = true,
     this.splitDoublePage = false,
-    this.splitScreen = false,
     this.autoTurn = false,
     this.autoTurnSeconds = 6,
     this.tapToTurn = true,
@@ -62,19 +95,29 @@ class ComicViewSettings {
     this.gamma = 1,
     this.invert = false,
     this.grayscale = false,
+    this.sepia = false,
+    this.autoLevels = false,
+    this.redBalance = 1,
+    this.greenBalance = 1,
+    this.blueBalance = 1,
+    this.screenOrientation = ComicScreenOrientation.automatic,
+    this.interfaceTheme = ComicInterfaceTheme.dark,
+    this.backlight = 100,
+    this.blueLightFilter = 0,
+    this.pageGap = 0,
+    this.blankFirstPage = false,
+    this.blur = 0,
   });
 
   final ComicPageDirection direction;
   final ComicPageLayout layout;
+  final ComicFitMode fitMode;
 
   /// 自动裁掉页面四周的白边。
   final bool cropBorders;
 
   /// 横向宽图视为双页扫描，自动切成左右两页分别翻。
   final bool splitDoublePage;
-
-  /// 分屏：把一页横切成上下两半，在小屏上放大阅读。
-  final bool splitScreen;
 
   /// 自动翻页。
   final bool autoTurn;
@@ -101,6 +144,38 @@ class ComicViewSettings {
   final bool invert;
   final bool grayscale;
 
+  /// 复古色调。
+  final bool sepia;
+
+  /// 自动调整亮度对比（对画面做一次自适应拉伸）。
+  final bool autoLevels;
+
+  /// 色彩平衡：红 / 绿 / 蓝通道增益。
+  final double redBalance;
+  final double greenBalance;
+  final double blueBalance;
+
+  /// 屏幕方向。
+  final ComicScreenOrientation screenOrientation;
+
+  /// 界面主题。
+  final ComicInterfaceTheme interfaceTheme;
+
+  /// 背光控制 20~100（以黑色蒙版近似降低屏幕亮度）。
+  final double backlight;
+
+  /// 过滤蓝光 0~100（琥珀色蒙版）。
+  final double blueLightFilter;
+
+  /// 页面边界：页与页之间的间距（逻辑像素）。
+  final double pageGap;
+
+  /// 插入空白页作为封里。
+  final bool blankFirstPage;
+
+  /// 高斯模糊半径（0 表示关闭）。
+  final double blur;
+
   bool get hasColorAdjust =>
       brightness != 0 ||
       contrast != 1 ||
@@ -108,14 +183,20 @@ class ComicViewSettings {
       hue != 0 ||
       gamma != 1 ||
       invert ||
-      grayscale;
+      grayscale ||
+      sepia ||
+      autoLevels ||
+      redBalance != 1 ||
+      greenBalance != 1 ||
+      blueBalance != 1 ||
+      blur > 0;
 
   ComicViewSettings copyWith({
     ComicPageDirection? direction,
     ComicPageLayout? layout,
+    ComicFitMode? fitMode,
     bool? cropBorders,
     bool? splitDoublePage,
-    bool? splitScreen,
     bool? autoTurn,
     int? autoTurnSeconds,
     bool? tapToTurn,
@@ -126,13 +207,25 @@ class ComicViewSettings {
     double? gamma,
     bool? invert,
     bool? grayscale,
+    bool? sepia,
+    bool? autoLevels,
+    double? redBalance,
+    double? greenBalance,
+    double? blueBalance,
+    ComicScreenOrientation? screenOrientation,
+    ComicInterfaceTheme? interfaceTheme,
+    double? backlight,
+    double? blueLightFilter,
+    double? pageGap,
+    bool? blankFirstPage,
+    double? blur,
   }) {
     return ComicViewSettings(
       direction: direction ?? this.direction,
       layout: layout ?? this.layout,
+      fitMode: fitMode ?? this.fitMode,
       cropBorders: cropBorders ?? this.cropBorders,
       splitDoublePage: splitDoublePage ?? this.splitDoublePage,
-      splitScreen: splitScreen ?? this.splitScreen,
       autoTurn: autoTurn ?? this.autoTurn,
       autoTurnSeconds: autoTurnSeconds ?? this.autoTurnSeconds,
       tapToTurn: tapToTurn ?? this.tapToTurn,
@@ -143,15 +236,27 @@ class ComicViewSettings {
       gamma: gamma ?? this.gamma,
       invert: invert ?? this.invert,
       grayscale: grayscale ?? this.grayscale,
+      sepia: sepia ?? this.sepia,
+      autoLevels: autoLevels ?? this.autoLevels,
+      redBalance: redBalance ?? this.redBalance,
+      greenBalance: greenBalance ?? this.greenBalance,
+      blueBalance: blueBalance ?? this.blueBalance,
+      screenOrientation: screenOrientation ?? this.screenOrientation,
+      interfaceTheme: interfaceTheme ?? this.interfaceTheme,
+      backlight: backlight ?? this.backlight,
+      blueLightFilter: blueLightFilter ?? this.blueLightFilter,
+      pageGap: pageGap ?? this.pageGap,
+      blankFirstPage: blankFirstPage ?? this.blankFirstPage,
+      blur: blur ?? this.blur,
     );
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'direction': direction.name,
     'layout': layout.name,
+    'fitMode': fitMode.name,
     'cropBorders': cropBorders,
     'splitDoublePage': splitDoublePage,
-    'splitScreen': splitScreen,
     'autoTurn': autoTurn,
     'autoTurnSeconds': autoTurnSeconds,
     'tapToTurn': tapToTurn,
@@ -162,6 +267,18 @@ class ComicViewSettings {
     'gamma': gamma,
     'invert': invert,
     'grayscale': grayscale,
+    'sepia': sepia,
+    'autoLevels': autoLevels,
+    'redBalance': redBalance,
+    'greenBalance': greenBalance,
+    'blueBalance': blueBalance,
+    'screenOrientation': screenOrientation.name,
+    'interfaceTheme': interfaceTheme.name,
+    'backlight': backlight,
+    'blueLightFilter': blueLightFilter,
+    'pageGap': pageGap,
+    'blankFirstPage': blankFirstPage,
+    'blur': blur,
   };
 
   static ComicViewSettings fromJson(Map<String, dynamic> json) {
@@ -176,7 +293,14 @@ class ComicViewSettings {
       for (final item in ComicPageLayout.values) {
         if (item.name == value) return item;
       }
-      return ComicPageLayout.single;
+      return ComicPageLayout.auto;
+    }
+
+    ComicFitMode parseFitMode(Object? value) {
+      for (final item in ComicFitMode.values) {
+        if (item.name == value) return item;
+      }
+      return ComicFitMode.fitWidth;
     }
 
     double asDouble(Object? value, double fallback) =>
@@ -188,9 +312,9 @@ class ComicViewSettings {
     return ComicViewSettings(
       direction: parseDirection(json['direction']),
       layout: parseLayout(json['layout']),
-      cropBorders: json['cropBorders'] == true,
+      fitMode: parseFitMode(json['fitMode']),
+      cropBorders: json['cropBorders'] != false,
       splitDoublePage: json['splitDoublePage'] == true,
-      splitScreen: json['splitScreen'] == true,
       autoTurn: json['autoTurn'] == true,
       autoTurnSeconds: asInt(json['autoTurnSeconds'], 6).clamp(2, 60).toInt(),
       tapToTurn: json['tapToTurn'] != false,
@@ -201,6 +325,25 @@ class ComicViewSettings {
       gamma: asDouble(json['gamma'], 1),
       invert: json['invert'] == true,
       grayscale: json['grayscale'] == true,
+      sepia: json['sepia'] == true,
+      autoLevels: json['autoLevels'] == true,
+      redBalance: asDouble(json['redBalance'], 1),
+      greenBalance: asDouble(json['greenBalance'], 1),
+      blueBalance: asDouble(json['blueBalance'], 1),
+      screenOrientation: () {
+        for (final item in ComicScreenOrientation.values) {
+          if (item.name == json['screenOrientation']) return item;
+        }
+        return ComicScreenOrientation.automatic;
+      }(),
+      interfaceTheme: json['interfaceTheme'] == ComicInterfaceTheme.light.name
+          ? ComicInterfaceTheme.light
+          : ComicInterfaceTheme.dark,
+      backlight: asDouble(json['backlight'], 100),
+      blueLightFilter: asDouble(json['blueLightFilter'], 0),
+      pageGap: asDouble(json['pageGap'], 0),
+      blankFirstPage: json['blankFirstPage'] == true,
+      blur: asDouble(json['blur'], 0),
     );
   }
 }
@@ -364,39 +507,19 @@ class ComicPageComposer {
       );
     }
 
-    if (!settings.splitScreen) return frames;
-
-    // 分屏：每个画面再切成上下两半。
-    final split = <ComicFrame>[];
-    for (final frame in frames) {
-      final rect = frame.src;
-      final midY = rect.top + rect.height / 2;
-      split.add(
-        ComicFrame(
-          imagePath: frame.imagePath,
-          src: Rect.fromLTRB(rect.left, rect.top, rect.right, midY),
-          logicalPage: frame.logicalPage,
-          imageAspect: frame.imageAspect,
-        ),
-      );
-      split.add(
-        ComicFrame(
-          imagePath: frame.imagePath,
-          src: Rect.fromLTRB(rect.left, midY, rect.right, rect.bottom),
-          logicalPage: frame.logicalPage,
-          imageAspect: frame.imageAspect,
-        ),
-      );
-    }
-    return split;
+    return frames;
   }
 
   /// 把画面两两配对成「屏」。
   static List<ComicSpread> composeSpreads({
     required List<ComicFrame> frames,
     required ComicViewSettings settings,
+    bool autoUseDouble = false,
   }) {
-    if (settings.layout == ComicPageLayout.single || frames.isEmpty) {
+    final useDouble =
+        settings.layout == ComicPageLayout.doublePage ||
+        (settings.layout == ComicPageLayout.auto && autoUseDouble);
+    if (!useDouble || frames.isEmpty) {
       return frames
           .map((frame) => ComicSpread(logicalPage: frame.logicalPage, left: frame))
           .toList(growable: false);
@@ -523,6 +646,23 @@ class ComicColorMatrix {
     0, 0, 0, 1, 0, //
   ];
 
+  /// 色彩平衡：红 / 绿 / 蓝通道增益。
+  static List<double> balanceMatrix(double red, double green, double blue) =>
+      <double>[
+        red, 0, 0, 0, 0, //
+        0, green, 0, 0, 0, //
+        0, 0, blue, 0, 0, //
+        0, 0, 0, 1, 0, //
+      ];
+
+  /// 复古色调（棕褐）。
+  static List<double> sepiaMatrix() => <double>[
+    0.393, 0.769, 0.189, 0, 0, //
+    0.349, 0.686, 0.168, 0, 0, //
+    0.272, 0.534, 0.131, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ];
+
   static List<double> grayscaleMatrix() => <double>[
     0.213, 0.715, 0.072, 0, 0, //
     0.213, 0.715, 0.072, 0, 0, //
@@ -548,6 +688,9 @@ class ComicColorMatrix {
     if (settings.grayscale) {
       matrix = multiply(grayscaleMatrix(), matrix);
     }
+    if (settings.sepia) {
+      matrix = multiply(sepiaMatrix(), matrix);
+    }
     if (settings.saturation != 1) {
       matrix = multiply(saturationMatrix(settings.saturation), matrix);
     }
@@ -557,11 +700,27 @@ class ComicColorMatrix {
     if (settings.gamma != 1) {
       matrix = multiply(gammaMatrix(settings.gamma), matrix);
     }
+    // 自动调整亮度对比：温和拉伸，避免过曝。
+    if (settings.autoLevels) {
+      matrix = multiply(contrastMatrix(112), matrix);
+    }
     if (settings.contrast != 1) {
       matrix = multiply(contrastMatrix(settings.contrast), matrix);
     }
     if (settings.brightness != 0) {
       matrix = multiply(brightnessMatrix(settings.brightness), matrix);
+    }
+    if (settings.redBalance != 1 ||
+        settings.greenBalance != 1 ||
+        settings.blueBalance != 1) {
+      matrix = multiply(
+        balanceMatrix(
+          settings.redBalance,
+          settings.greenBalance,
+          settings.blueBalance,
+        ),
+        matrix,
+      );
     }
     if (settings.invert) {
       matrix = multiply(invertMatrix(), matrix);
