@@ -93,7 +93,27 @@ jobs:
           git add -f test-output.log
           git commit -m "ci: test output"
           git push -f origin test-logs
-      - run: flutter analyze --no-pub
+      # 静态分析失败时把完整输出推到 ci-logs 分支，便于本地 git 直接读取。
+      - name: Analyze (log to branch on failure)
+        id: analyze_step
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          flutter analyze --no-pub 2>&1 | tee /tmp/analyze.log
+          exit ${PIPESTATUS[0]}
+      - name: Push analyze log (on failure)
+        if: steps.analyze_step.outcome == 'failure'
+        run: |
+          git config user.email "ci@local"
+          git config user.name "ci"
+          git checkout -B ci-logs
+          cp /tmp/analyze.log analyze.log
+          git add -f analyze.log
+          git commit -m "ci: analyze log"
+          git push -f origin ci-logs
+      - name: Fail if analyze failed
+        if: steps.analyze_step.outcome == 'failure'
+        run: exit 1
 
   build-ios:
     name: Build iOS IPA
