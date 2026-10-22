@@ -1,7 +1,13 @@
 // 文件说明：Perfect Viewer 风格的漫画阅读菜单面板（全屏半透明覆盖层）。
-// 结构对齐参考截图：顶部蓝色图标栏 + 列表式条目（标题 / 下拉值 / 开关 / 滑块）。
+// 结构对齐参考截图：顶部蓝色图标栏 + 列表式条目。
+// 尺寸与配色按截图校准：行高 60、图标 26（彩色）、正文 16.5 加粗纯白、极淡分割线。
 // 说明：图标用 Material 语义等价图标实现，不复制原软件的美术资源。
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/reader/comic_view_settings.dart';
 
@@ -20,14 +26,37 @@ enum ComicMenuTab {
   final String label;
 }
 
-/// 面板配色（对齐截图）。
-class _PvColors {
+/// 面板配色与尺寸（对齐截图）。
+class _Pv {
   static const Color bar = Color(0xFF4650C8);
-  static const Color panel = Color(0xD9000000);
-  static const Color divider = Color(0x26FFFFFF);
+  static const Color panel = Color(0xE6000000);
+  static const Color divider = Color(0x0FFFFFFF);
   static const Color text = Colors.white;
-  static const Color subText = Color(0xB3FFFFFF);
-  static const Color icon = Color(0xE6FFFFFF);
+  static const Color subText = Color(0xCCFFFFFF);
+  static const Color icon = Color(0xFFFFFFFF);
+
+  static const double rowHeight = 60;
+  static const double iconSize = 26;
+  static const double fontSize = 16.5;
+  static const FontWeight fontWeight = FontWeight.w500;
+
+  // 图标配色（截图里是彩色图标）。
+  static const Color folder = Color(0xFFFFCA28);
+  static const Color book = Color(0xFF64B5F6);
+  static const Color file = Color(0xFF90CAF9);
+  static const Color bookmark = Color(0xFF42A5F5);
+  static const Color favorite = Color(0xFFEF5350);
+  static const Color star = Color(0xFFFFB300);
+  static const Color play = Color(0xFF81C784);
+  static const Color download = Color(0xFF4FC3F7);
+  static const Color search = Color(0xFFB0BEC5);
+  static const Color forward = Color(0xFF90A4AE);
+  static const Color toc = Color(0xFF66BB6A);
+  static const Color info = Color(0xFF9575CD);
+  static const Color share = Color(0xFF4DB6AC);
+  static const Color print = Color(0xFFA1887F);
+  static const Color delete = Color(0xFFE57373);
+  static const Color close = Color(0xFFB0BEC5);
 }
 
 /// 全屏菜单面板。
@@ -38,9 +67,12 @@ class ComicMenuPanel extends StatefulWidget {
     required this.pageCount,
     required this.spreadCount,
     required this.currentLogicalPage,
+    required this.imagePaths,
     required this.onSettingsChanged,
     required this.onJumpToPage,
-    required this.onCloseBook,
+    required this.onOpenLibrary,
+    required this.onImportFile,
+    required this.onDeleteBook,
     required this.bookTitle,
     required this.bookPath,
   });
@@ -49,9 +81,12 @@ class ComicMenuPanel extends StatefulWidget {
   final int pageCount;
   final int spreadCount;
   final int currentLogicalPage;
+  final List<String> imagePaths;
   final ValueChanged<ComicViewSettings> onSettingsChanged;
   final ValueChanged<int> onJumpToPage;
-  final VoidCallback onCloseBook;
+  final VoidCallback onOpenLibrary;
+  final VoidCallback onImportFile;
+  final VoidCallback onDeleteBook;
   final String bookTitle;
   final String bookPath;
 
@@ -63,6 +98,37 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   ComicMenuTab _tab = ComicMenuTab.menu;
   late ComicViewSettings _settings = widget.settings;
   bool _colorMasterOn = true;
+  List<int> _bookmarks = const <int>[];
+  bool _favorite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_bookmarkKey) ?? const <String>[];
+      final list = raw
+          .map(int.tryParse)
+          .whereType<int>()
+          .toList(growable: false)
+        ..sort();
+      final favorite = prefs.getBool(_favoriteKey) ?? false;
+      if (!mounted) return;
+      setState(() {
+        _bookmarks = list;
+        _favorite = favorite;
+      });
+    } catch (_) {
+      // 读取失败不影响使用。
+    }
+  }
+
+  String get _bookmarkKey => 'comic_bookmarks_${widget.bookPath.hashCode}';
+  String get _favoriteKey => 'comic_favorite_${widget.bookPath.hashCode}';
 
   void _update(ComicViewSettings next) {
     setState(() => _settings = next);
@@ -74,7 +140,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
     return Material(
       color: Colors.transparent,
       child: Container(
-        color: _PvColors.panel,
+        color: _Pv.panel,
         child: SafeArea(
           child: Column(
             children: [
@@ -92,8 +158,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   Widget _buildIconBar() {
     return Container(
       height: 56,
-      color: _PvColors.bar,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: _Pv.bar,
       child: Row(
         children: [
           for (final tab in ComicMenuTab.values)
@@ -101,22 +166,19 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
               child: InkWell(
                 onTap: () => setState(() => _tab = tab),
                 child: Container(
-                  height: 56,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: _tab == tab
-                            ? Colors.white
-                            : Colors.transparent,
+                        color: _tab == tab ? Colors.white : Colors.transparent,
                         width: 3,
                       ),
                     ),
                   ),
                   child: Icon(
                     tab.icon,
-                    size: 24,
-                    color: _tab == tab ? Colors.white : _PvColors.icon,
+                    size: 26,
+                    color: _tab == tab ? Colors.white : const Color(0xFFD7DBFF),
                   ),
                 ),
               ),
@@ -144,79 +206,103 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
       padding: EdgeInsets.zero,
       children: [
         _PvItem(
-          icon: Icons.folder_open_rounded,
+          icon: Icons.folder_rounded,
+          iconColor: _Pv.folder,
           title: '文件浏览器',
-          onTap: () => _toast('漫画阅读中暂不支持文件浏览器'),
+          onTap: widget.onOpenLibrary,
         ),
         _PvItem(
           icon: Icons.collections_bookmark_rounded,
+          iconColor: _Pv.book,
           title: '我的书柜',
-          onTap: () => Navigator.of(context).maybePop(),
+          onTap: widget.onOpenLibrary,
         ),
         _PvItem(
           icon: Icons.insert_drive_file_rounded,
+          iconColor: _Pv.file,
           title: '开启文件',
-          onTap: () => _toast('请回到书架页导入文件'),
+          onTap: widget.onImportFile,
         ),
         _PvItem(
           icon: Icons.bookmark_add_rounded,
+          iconColor: _Pv.bookmark,
           title: '插入书签',
-          onTap: () => _toast('已记录当前页：${widget.currentLogicalPage + 1}'),
+          onTap: _addBookmark,
         ),
         _PvItem(
           icon: Icons.folder_special_rounded,
+          iconColor: _Pv.star,
           title: '管理我的最爱',
+          onTap: _manageFavorites,
         ),
         _PvItem(
           icon: Icons.favorite_rounded,
+          iconColor: _Pv.favorite,
           title: '加入我的最爱',
+          trailingText: _favorite ? '已加入' : null,
+          onTap: _addFavorite,
         ),
         _PvItem(
           icon: Icons.play_circle_outline_rounded,
+          iconColor: _Pv.play,
           title: '开始幻灯片播放',
           onTap: () {
             _update(_settings.copyWith(autoTurn: true));
             Navigator.of(context).maybePop();
+            _toast('已开始自动翻页，每 ${_settings.autoTurnSeconds} 秒一页');
           },
         ),
         _PvItem(
           icon: Icons.download_rounded,
+          iconColor: _Pv.download,
           title: '下载管理',
+          onTap: () => _toast('本机漫画为本地文件，没有下载任务'),
         ),
         _PvItem(
-          icon: Icons.zoom_in_rounded,
+          icon: Icons.search_rounded,
+          iconColor: _Pv.search,
           title: '对话框放大镜',
+          onTap: _magnifier,
         ),
         _PvItem(
           icon: Icons.forward_rounded,
+          iconColor: _Pv.forward,
           title: '快速前往',
-          onTap: () => setState(() => _tab = ComicMenuTab.history),
+          onTap: _quickJumpDialog,
         ),
         _PvItem(
           icon: Icons.toc_rounded,
+          iconColor: _Pv.toc,
           title: '目次',
           onTap: () => setState(() => _tab = ComicMenuTab.catalog),
         ),
         _PvItem(
           icon: Icons.info_outline_rounded,
+          iconColor: _Pv.info,
           title: 'EXIF',
-          onTap: () => setState(() => _tab = ComicMenuTab.catalog),
+          onTap: _showExif,
         ),
         _PvItem(
           icon: Icons.share_rounded,
+          iconColor: _Pv.share,
           title: '分享',
+          onTap: _shareInfo,
         ),
         _PvItem(
           icon: Icons.print_rounded,
+          iconColor: _Pv.print,
           title: '打印',
+          onTap: _printInfo,
         ),
         _PvItem(
           icon: Icons.delete_outline_rounded,
+          iconColor: _Pv.delete,
           title: '删除书本',
-          onTap: widget.onCloseBook,
+          onTap: widget.onDeleteBook,
         ),
         _PvItem(
-          icon: Icons.close_rounded,
+          icon: Icons.exit_to_app_rounded,
+          iconColor: _Pv.close,
           title: '关闭',
           onTap: () => Navigator.of(context).maybePop(),
         ),
@@ -225,15 +311,21 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   }
 
   Widget _buildCatalog() {
-    return ListView(
+    return ListView.builder(
       padding: EdgeInsets.zero,
-      children: [
-        _PvInfoRow(label: '书名', value: widget.bookTitle),
-        _PvInfoRow(label: '路径', value: widget.bookPath, small: true),
-        _PvInfoRow(label: '总页数', value: '${widget.pageCount}'),
-        _PvInfoRow(label: '当前屏数', value: '${widget.spreadCount}'),
-        _PvInfoRow(label: '当前页', value: '${widget.currentLogicalPage + 1}'),
-      ],
+      itemCount: widget.pageCount,
+      itemBuilder: (context, index) => _PvItem(
+        icon: Icons.image_outlined,
+        iconColor: index == widget.currentLogicalPage
+            ? _Pv.book
+            : const Color(0x66FFFFFF),
+        title: '第 ${index + 1} 页',
+        trailingText: index == widget.currentLogicalPage ? '当前' : null,
+        onTap: () {
+          widget.onJumpToPage(index);
+          Navigator.of(context).maybePop();
+        },
+      ),
     );
   }
 
@@ -241,49 +333,65 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        _PvInfoRow(label: '当前进度', value: '第 ${widget.currentLogicalPage + 1} 页'),
+        _PvInfoRow(
+          label: '当前进度',
+          value: '第 ${widget.currentLogicalPage + 1} / ${widget.pageCount} 页',
+        ),
         _PvItem(
           icon: Icons.first_page_rounded,
+          iconColor: _Pv.forward,
           title: '跳到第一页',
-          onTap: () {
-            widget.onJumpToPage(0);
-            Navigator.of(context).maybePop();
-          },
+          onTap: () => _jump(0),
         ),
         _PvItem(
           icon: Icons.last_page_rounded,
+          iconColor: _Pv.forward,
           title: '跳到最后一页',
-          onTap: () {
-            widget.onJumpToPage(widget.pageCount - 1);
-            Navigator.of(context).maybePop();
-          },
+          onTap: () => _jump(widget.pageCount - 1),
         ),
         _PvItem(
-          icon: Icons.skip_previous_rounded,
+          icon: Icons.fast_forward_rounded,
+          iconColor: _Pv.forward,
           title: '前进 10 页',
-          onTap: () {
-            widget.onJumpToPage(widget.currentLogicalPage + 10);
-            Navigator.of(context).maybePop();
-          },
+          onTap: () => _jump(widget.currentLogicalPage + 10),
         ),
         _PvItem(
-          icon: Icons.skip_next_rounded,
+          icon: Icons.fast_rewind_rounded,
+          iconColor: _Pv.forward,
           title: '后退 10 页',
-          onTap: () {
-            widget.onJumpToPage(widget.currentLogicalPage - 10);
-            Navigator.of(context).maybePop();
-          },
+          onTap: () => _jump(widget.currentLogicalPage - 10),
+        ),
+        _PvItem(
+          icon: Icons.pin_rounded,
+          iconColor: _Pv.bookmark,
+          title: '输入页码跳转',
+          onTap: _quickJumpDialog,
         ),
       ],
     );
   }
 
   Widget _buildBookmarkTab() {
-    return ListView(
+    if (_bookmarks.isEmpty) {
+      return ListView(
+        padding: EdgeInsets.zero,
+        children: const [_PvInfoRow(label: '目前无书签数据', value: '')],
+      );
+    }
+    return ListView.builder(
       padding: EdgeInsets.zero,
-      children: const [
-        _PvInfoRow(label: '目前无书签数据', value: ''),
-      ],
+      itemCount: _bookmarks.length,
+      itemBuilder: (context, index) {
+        final page = _bookmarks[index];
+        return _PvItem(
+          icon: Icons.bookmark_rounded,
+          iconColor: _Pv.bookmark,
+          title: '书签 ${index + 1} · 第 ${page + 1} 页',
+          trailingText: '长按删除',
+          onTap: () => _jump(page),
+          onLongPress: () => _removeBookmark(page),
+        );
+      },
     );
   }
 
@@ -295,6 +403,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
       children: [
         _PvSwitchItem(
           icon: Icons.settings_rounded,
+          iconColor: _Pv.icon,
           title: '调整颜色',
           value: _colorMasterOn,
           onChanged: (value) {
@@ -311,6 +420,8 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
                   grayscale: false,
                   sepia: false,
                   autoLevels: false,
+                  sharpen: 0,
+                  blur: 0,
                   redBalance: 1,
                   greenBalance: 1,
                   blueBalance: 1,
@@ -321,6 +432,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSliderItem(
           icon: Icons.tune_rounded,
+          iconColor: const Color(0xFFE45B5B),
           title: '色彩平衡',
           enabled: _colorMasterOn,
           value: _settings.redBalance,
@@ -332,6 +444,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSliderItem(
           icon: Icons.tonality_rounded,
+          iconColor: const Color(0xFF7C87E8),
           title: '色相 / 彩度',
           enabled: _colorMasterOn,
           value: _settings.saturation,
@@ -339,11 +452,11 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           max: 2,
           divisions: 40,
           valueLabel: '${(_settings.saturation * 100).round()}%',
-          onChanged: (value) =>
-              _update(_settings.copyWith(saturation: value)),
+          onChanged: (value) => _update(_settings.copyWith(saturation: value)),
         ),
         _PvSwitchItem(
           icon: Icons.invert_colors_rounded,
+          iconColor: const Color(0xFF9C7BE8),
           title: '反相',
           enabled: _colorMasterOn,
           value: _settings.invert,
@@ -351,6 +464,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSwitchItem(
           icon: Icons.gradient_rounded,
+          iconColor: const Color(0xFF90A4AE),
           title: '灰阶',
           enabled: _colorMasterOn,
           value: _settings.grayscale,
@@ -358,21 +472,27 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSwitchItem(
           icon: Icons.filter_vintage_rounded,
+          iconColor: const Color(0xFFC8A165),
           title: '复古色调',
           enabled: _colorMasterOn,
           value: _settings.sepia,
           onChanged: (value) => _update(_settings.copyWith(sepia: value)),
         ),
-        _PvSwitchItem(
+        _PvSliderItem(
           icon: Icons.details_rounded,
+          iconColor: const Color(0xFF4FC3F7),
           title: '图像锐化',
-          enabled: false,
-          value: false,
-          subtitle: '暂不支持',
-          onChanged: (_) {},
+          enabled: _colorMasterOn,
+          value: _settings.sharpen,
+          min: 0,
+          max: 1,
+          divisions: 10,
+          valueLabel: '${(_settings.sharpen * 100).round()}%',
+          onChanged: (value) => _update(_settings.copyWith(sharpen: value)),
         ),
         _PvSliderItem(
           icon: Icons.blur_on_rounded,
+          iconColor: const Color(0xFF81C784),
           title: '高斯模糊',
           enabled: _colorMasterOn,
           value: _settings.blur,
@@ -382,44 +502,33 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           valueLabel: _settings.blur.toStringAsFixed(1),
           onChanged: (value) => _update(_settings.copyWith(blur: value)),
         ),
-        _PvSwitchItem(
+        _PvSliderItem(
           icon: Icons.crop_rounded,
+          iconColor: const Color(0xFFFFB74D),
           title: '手工裁切',
-          enabled: false,
-          value: false,
-          subtitle: '暂不支持',
-          onChanged: (_) {},
+          enabled: _colorMasterOn,
+          value: _settings.manualCrop,
+          min: 0,
+          max: 0.3,
+          divisions: 30,
+          valueLabel: '${(_settings.manualCrop * 100).round()}%',
+          onChanged: (value) => _update(_settings.copyWith(manualCrop: value)),
         ),
         _PvSwitchItem(
           icon: Icons.border_clear_rounded,
+          iconColor: const Color(0xFFE45B5B),
           title: '自动侦测白边',
-          enabled: true,
           value: _settings.cropBorders,
           useSliderStyle: true,
           onChanged: (value) => _update(_settings.copyWith(cropBorders: value)),
         ),
         _PvSwitchItem(
-          icon: Icons.colorize_rounded,
-          title: '自动上色',
-          enabled: false,
-          value: false,
-          subtitle: '暂不支持',
-          onChanged: (_) {},
-        ),
-        _PvSwitchItem(
-          icon: Icons.auto_awesome_rounded,
+          icon: Icons.auto_fix_high_rounded,
+          iconColor: const Color(0xFFFFD54F),
           title: '自动调整亮度对比',
           enabled: _colorMasterOn,
           value: _settings.autoLevels,
           onChanged: (value) => _update(_settings.copyWith(autoLevels: value)),
-        ),
-        _PvSwitchItem(
-          icon: Icons.grid_on_rounded,
-          title: '去块滤镜',
-          enabled: false,
-          value: false,
-          subtitle: '暂不支持',
-          onChanged: (_) {},
         ),
       ],
     );
@@ -433,6 +542,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
       children: [
         _PvPickerItem<ComicPageDirection>(
           icon: Icons.swap_horiz_rounded,
+          iconColor: _Pv.book,
           title: '开页方向',
           values: ComicPageDirection.values,
           labelOf: (value) => switch (value) {
@@ -441,11 +551,11 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
             ComicPageDirection.horizontalRight => '由右至左',
           },
           value: _settings.direction,
-          onChanged: (value) =>
-              _update(_settings.copyWith(direction: value)),
+          onChanged: (value) => _update(_settings.copyWith(direction: value)),
         ),
         _PvPickerItem<ComicScreenOrientation>(
           icon: Icons.smartphone_rounded,
+          iconColor: _Pv.forward,
           title: '屏幕方向',
           values: ComicScreenOrientation.values,
           labelOf: (value) => value.label,
@@ -455,6 +565,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvPickerItem<ComicFitMode>(
           icon: Icons.fit_screen_rounded,
+          iconColor: _Pv.forward,
           title: '缩放方式',
           values: ComicFitMode.values,
           labelOf: (value) => value.label,
@@ -463,6 +574,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvPickerItem<ComicInterfaceTheme>(
           icon: Icons.brightness_6_rounded,
+          iconColor: _Pv.star,
           title: '界面主题',
           values: ComicInterfaceTheme.values,
           labelOf: (value) => value.label,
@@ -472,6 +584,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvPickerItem<ComicPageLayout>(
           icon: Icons.auto_stories_rounded,
+          iconColor: _Pv.toc,
           title: '阅读模式',
           values: ComicPageLayout.values,
           labelOf: (value) => switch (value) {
@@ -484,8 +597,8 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSliderItem(
           icon: Icons.brightness_low_rounded,
+          iconColor: _Pv.star,
           title: '背光控制',
-          enabled: true,
           value: _settings.backlight,
           min: 20,
           max: 100,
@@ -495,8 +608,8 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSliderItem(
           icon: Icons.nightlight_rounded,
+          iconColor: const Color(0xFFFFB74D),
           title: '过滤蓝光',
-          enabled: true,
           value: _settings.blueLightFilter,
           min: 0,
           max: 100,
@@ -507,8 +620,8 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSliderItem(
           icon: Icons.border_style_rounded,
+          iconColor: _Pv.forward,
           title: '页面边界',
-          enabled: true,
           value: _settings.pageGap,
           min: 0,
           max: 40,
@@ -518,39 +631,39 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
         ),
         _PvSwitchItem(
           icon: Icons.note_add_outlined,
+          iconColor: _Pv.book,
           title: '插入空白页作为封里',
-          enabled: true,
           value: _settings.blankFirstPage,
           onChanged: (value) =>
               _update(_settings.copyWith(blankFirstPage: value)),
         ),
         _PvSwitchItem(
           icon: Icons.content_cut_rounded,
+          iconColor: _Pv.toc,
           title: '自动分割双页',
-          enabled: true,
           value: _settings.splitDoublePage,
           onChanged: (value) =>
               _update(_settings.copyWith(splitDoublePage: value)),
         ),
         _PvSwitchItem(
           icon: Icons.touch_app_rounded,
+          iconColor: _Pv.book,
           title: '点击区域翻页',
-          enabled: true,
           value: _settings.tapToTurn,
           onChanged: (value) => _update(_settings.copyWith(tapToTurn: value)),
         ),
         _PvSwitchItem(
           icon: Icons.slideshow_rounded,
+          iconColor: _Pv.play,
           title: '自动翻页',
-          enabled: true,
           value: _settings.autoTurn,
           onChanged: (value) => _update(_settings.copyWith(autoTurn: value)),
         ),
         if (_settings.autoTurn)
           _PvSliderItem(
             icon: Icons.timer_rounded,
+            iconColor: _Pv.play,
             title: '翻页间隔',
-            enabled: true,
             value: _settings.autoTurnSeconds.toDouble(),
             min: 2,
             max: 30,
@@ -560,10 +673,196 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
               _settings.copyWith(autoTurnSeconds: value.round()),
             ),
           ),
-        _PvInfoRow(label: '显示信息', value: ''),
-        _PvInfoRow(label: '问题回报', value: ''),
       ],
     );
+  }
+
+  // ---------------------------------------------------------------- 动作
+
+  void _jump(int page) {
+    widget.onJumpToPage(page.clamp(0, widget.pageCount - 1));
+    Navigator.of(context).maybePop();
+  }
+
+  Future<void> _addBookmark() async {
+    final page = widget.currentLogicalPage;
+    final next = {..._bookmarks, page}.toList()..sort();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_bookmarkKey, next.map((e) => '$e').toList());
+      if (!mounted) return;
+      setState(() => _bookmarks = next);
+      _toast('已插入书签：第 ${page + 1} 页');
+    } catch (_) {
+      _toast('插入书签失败');
+    }
+  }
+
+  Future<void> _removeBookmark(int page) async {
+    final next = _bookmarks.where((e) => e != page).toList()..sort();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_bookmarkKey, next.map((e) => '$e').toList());
+      if (!mounted) return;
+      setState(() => _bookmarks = next);
+      _toast('已删除该书签');
+    } catch (_) {
+      _toast('删除书签失败');
+    }
+  }
+
+  Future<void> _addFavorite() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_favoriteKey, !_favorite);
+      if (!mounted) return;
+      setState(() => _favorite = !_favorite);
+      _toast(_favorite ? '已加入我的最爱' : '已移出我的最爱');
+    } catch (_) {
+      _toast('操作失败');
+    }
+  }
+
+  void _manageFavorites() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1B1B1B),
+        title: const Text('我的最爱', style: TextStyle(color: Colors.white)),
+        content: Text(
+          _favorite ? '当前书籍已在我的最爱中。' : '当前书籍不在我的最爱中，可在主菜单点「加入我的最爱」。',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _quickJumpDialog() {
+    final controller = TextEditingController(
+      text: '${widget.currentLogicalPage + 1}',
+    );
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1B1B1B),
+        title: const Text('快速前往', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: '1 ~ ${widget.pageCount}',
+            hintStyle: const TextStyle(color: Colors.white38),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              final page = int.tryParse(controller.text.trim());
+              Navigator.of(context).pop();
+              if (page != null) _jump(page - 1);
+            },
+            child: const Text('前往'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showExif() async {
+    final index = widget.currentLogicalPage.clamp(
+      0,
+      widget.imagePaths.isEmpty ? 0 : widget.imagePaths.length - 1,
+    );
+    if (widget.imagePaths.isEmpty) return;
+    final path = widget.imagePaths[index];
+    final file = File(path);
+    var size = '未知';
+    var dimension = '未知';
+    try {
+      if (await file.exists()) {
+        final length = await file.length();
+        size = '${(length / 1024).toStringAsFixed(0)} KB';
+      }
+      final bytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 8);
+      final frame = await codec.getNextFrame();
+      dimension = '${frame.image.width} × ${frame.image.height}';
+      frame.image.dispose();
+      codec.dispose();
+    } catch (_) {
+      // 读不到就显示未知。
+    }
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1B1B1B),
+        title: const Text('EXIF', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _exifLine('文件名', p.basename(path)),
+            _exifLine('页序', '第 ${index + 1} 页'),
+            _exifLine('尺寸', dimension),
+            _exifLine('体积', size),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _exifLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareInfo() {
+    _toast('分享需要系统分享面板：当前版本可长按书架书籍导出文件');
+  }
+
+  void _printInfo() {
+    _toast('打印需要 AirPrint 支持：当前版本未接入');
+  }
+
+  void _magnifier() {
+    _toast('提示：在画面上双指张开即可放大查看细节');
   }
 
   void _toast(String message) {
@@ -575,42 +874,59 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
 
 // ---------------------------------------------------------------- 列表项
 
-/// 图标 + 标题 + 右侧箭头/文本 的可点条目。
+/// 图标 + 标题 + 右侧文本 的可点条目。
 class _PvItem extends StatelessWidget {
   const _PvItem({
     required this.icon,
+    required this.iconColor,
     required this.title,
+    this.trailingText,
     this.onTap,
+    this.onLongPress,
   });
 
   final IconData icon;
+  final Color iconColor;
   final String title;
+  final String? trailingText;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
-        height: 56,
+        height: _Pv.rowHeight,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: _PvColors.divider)),
+          border: Border(bottom: BorderSide(color: _Pv.divider)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: _PvColors.icon),
+            Icon(icon, size: _Pv.iconSize, color: iconColor),
             const SizedBox(width: 18),
             Expanded(
               child: Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: _PvColors.text,
-                  fontSize: 16,
-                  height: 1.2,
+                  color: _Pv.text,
+                  fontSize: _Pv.fontSize,
+                  fontWeight: _Pv.fontWeight,
                 ),
               ),
             ),
+            if (trailingText != null)
+              Text(
+                trailingText!,
+                style: const TextStyle(
+                  color: _Pv.subText,
+                  fontSize: 13,
+                ),
+              ),
           ],
         ),
       ),
@@ -622,6 +938,7 @@ class _PvItem extends StatelessWidget {
 class _PvPickerItem<T> extends StatelessWidget {
   const _PvPickerItem({
     required this.icon,
+    required this.iconColor,
     required this.title,
     required this.values,
     required this.labelOf,
@@ -630,6 +947,7 @@ class _PvPickerItem<T> extends StatelessWidget {
   });
 
   final IconData icon;
+  final Color iconColor;
   final String title;
   final List<T> values;
   final String Function(T) labelOf;
@@ -667,47 +985,42 @@ class _PvPickerItem<T> extends StatelessWidget {
         if (picked != null) onChanged(picked);
       },
       child: Container(
-        padding: const EdgeInsets.fromLTRB(18, 12, 14, 12),
+        padding: const EdgeInsets.fromLTRB(18, 11, 16, 11),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: _PvColors.divider)),
+          border: Border(bottom: BorderSide(color: _Pv.divider)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, size: 22, color: _PvColors.icon),
+                Icon(icon, size: _Pv.iconSize, color: iconColor),
                 const SizedBox(width: 18),
                 Text(
                   title,
                   style: const TextStyle(
-                    color: _PvColors.text,
-                    fontSize: 16,
+                    color: _Pv.text,
+                    fontSize: _Pv.fontSize,
+                    fontWeight: _Pv.fontWeight,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.only(left: 40),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  Text(
-                    labelOf(value),
-                    style: const TextStyle(
-                      color: _PvColors.subText,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_drop_down,
-                    color: _PvColors.subText,
-                    size: 22,
-                  ),
-                ],
-              ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Spacer(),
+                Text(
+                  labelOf(value),
+                  style: const TextStyle(color: _Pv.subText, fontSize: 15),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.arrow_drop_down,
+                  color: _Pv.subText,
+                  size: 24,
+                ),
+              ],
             ),
           ],
         ),
@@ -720,20 +1033,20 @@ class _PvPickerItem<T> extends StatelessWidget {
 class _PvSwitchItem extends StatelessWidget {
   const _PvSwitchItem({
     required this.icon,
+    required this.iconColor,
     required this.title,
     required this.value,
     required this.onChanged,
     this.enabled = true,
-    this.subtitle,
     this.useSliderStyle = false,
   });
 
   final IconData icon;
+  final Color iconColor;
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
   final bool enabled;
-  final String? subtitle;
   final bool useSliderStyle;
 
   @override
@@ -742,42 +1055,27 @@ class _PvSwitchItem extends StatelessWidget {
         ? const Color(0xFFE45B5B)
         : const Color(0xFF7C87E8);
     return Container(
-      height: subtitle == null ? 56 : 70,
+      height: _Pv.rowHeight,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _PvColors.divider)),
+        border: Border(bottom: BorderSide(color: _Pv.divider)),
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            size: 22,
-            color: enabled ? _PvColors.icon : const Color(0x4DFFFFFF),
+            size: _Pv.iconSize,
+            color: enabled ? iconColor : const Color(0x4DFFFFFF),
           ),
           const SizedBox(width: 18),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: enabled
-                        ? _PvColors.text
-                        : const Color(0x80FFFFFF),
-                    fontSize: 16,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      color: Color(0x66FFFFFF),
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
+            child: Text(
+              title,
+              style: TextStyle(
+                color: enabled ? _Pv.text : const Color(0x80FFFFFF),
+                fontSize: _Pv.fontSize,
+                fontWeight: _Pv.fontWeight,
+              ),
             ),
           ),
           Switch(
@@ -795,6 +1093,7 @@ class _PvSwitchItem extends StatelessWidget {
 class _PvSliderItem extends StatelessWidget {
   const _PvSliderItem({
     required this.icon,
+    required this.iconColor,
     required this.title,
     required this.value,
     required this.min,
@@ -806,6 +1105,7 @@ class _PvSliderItem extends StatelessWidget {
   });
 
   final IconData icon;
+  final Color iconColor;
   final String title;
   final double value;
   final double min;
@@ -818,9 +1118,9 @@ class _PvSliderItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(18, 6, 14, 2),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _PvColors.divider)),
+        border: Border(bottom: BorderSide(color: _Pv.divider)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -829,24 +1129,22 @@ class _PvSliderItem extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: 22,
-                color: enabled ? _PvColors.icon : const Color(0x4DFFFFFF),
+                size: _Pv.iconSize,
+                color: enabled ? iconColor : const Color(0x4DFFFFFF),
               ),
               const SizedBox(width: 18),
               Text(
                 title,
                 style: TextStyle(
-                  color: enabled ? _PvColors.text : const Color(0x80FFFFFF),
-                  fontSize: 16,
+                  color: enabled ? _Pv.text : const Color(0x80FFFFFF),
+                  fontSize: _Pv.fontSize,
+                  fontWeight: _Pv.fontWeight,
                 ),
               ),
               const Spacer(),
               Text(
                 valueLabel,
-                style: const TextStyle(
-                  color: _PvColors.subText,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: _Pv.subText, fontSize: 13),
               ),
             ],
           ),
@@ -867,43 +1165,33 @@ class _PvSliderItem extends StatelessWidget {
 
 /// 纯信息行。
 class _PvInfoRow extends StatelessWidget {
-  const _PvInfoRow({
-    required this.label,
-    required this.value,
-    this.small = false,
-  });
+  const _PvInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool small;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _PvColors.divider)),
+        border: Border(bottom: BorderSide(color: _Pv.divider)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(color: _PvColors.text, fontSize: 16),
+            style: const TextStyle(
+              color: _Pv.text,
+              fontSize: _Pv.fontSize,
+              fontWeight: _Pv.fontWeight,
+            ),
           ),
           const Spacer(),
           if (value.isNotEmpty)
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                maxLines: small ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _PvColors.subText,
-                  fontSize: small ? 11 : 14,
-                ),
-              ),
+            Text(
+              value,
+              style: const TextStyle(color: _Pv.subText, fontSize: 14),
             ),
         ],
       ),

@@ -549,6 +549,21 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       }
     }
 
+    // 手工裁切：四边等比内缩。
+    final manual = _settings.manualCrop;
+    if (manual > 0) {
+      final insetX = src.width * manual;
+      final insetY = src.height * manual;
+      if (src.width - insetX * 2 > 0.05 && src.height - insetY * 2 > 0.05) {
+        src = Rect.fromLTRB(
+          src.left + insetX,
+          src.top + insetY,
+          src.right - insetX,
+          src.bottom - insetY,
+        );
+      }
+    }
+
     final image = _imageCache.get(frame.imagePath);
     if (image == null) {
       _imageCache.load(frame.imagePath).then((_) {
@@ -660,54 +675,40 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildBottomBar() {
-    final last = _spreads.length - 1;
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: SafeArea(
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.8),
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ValueListenableBuilder<int>(
-                valueListenable: _currentIndex,
-                builder: (context, index, _) => Slider(
-                  value: index.toDouble().clamp(
-                    0.0,
-                    last > 0 ? last.toDouble() : 1.0,
-                  ).toDouble(),
-                  max: last > 1 ? last.toDouble() : 1.0,
-                  onChanged: (value) => _goTo(value.round()),
+              _pagePill(Icons.chevron_left_rounded, _previousPage),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
                 ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous),
-                    color: Colors.white,
-                    onPressed: _previousPage,
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: ValueListenableBuilder<int>(
-                        valueListenable: _currentIndex,
-                        builder: (context, index, _) => Text(
-                          '${index + 1} / ${_spreads.length}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _currentIndex,
+                  builder: (context, index, _) => Text(
+                    '${index + 1} / ${_spreads.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next),
-                    color: Colors.white,
-                    onPressed: _nextPage,
-                  ),
-                ],
+                ),
               ),
+              const SizedBox(width: 8),
+              _pagePill(Icons.chevron_right_rounded, _nextPage),
             ],
           ),
         ),
@@ -715,7 +716,45 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     );
   }
 
+  Widget _pagePill(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
+  }
+
   // ------------------------------------------------------------ 菜单面板
+
+  void _leaveReader() {
+    // 先关菜单面板，再退出阅读页。
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+    if (mounted && navigator.canPop()) navigator.pop();
+  }
+
+  Future<void> _deleteCurrentBook() async {
+    final bookId = widget.book.id;
+    if (bookId != null) {
+      try {
+        await _dao.deleteBook(bookId);
+      } catch (_) {
+        // 删除失败也退出，避免卡在阅读页。
+      }
+    }
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+    if (navigator.canPop()) navigator.pop();
+  }
 
   Future<void> _showSettings() async {
     await showGeneralDialog<void>(
@@ -729,6 +768,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         pageCount: _images.length,
         spreadCount: _spreads.length,
         currentLogicalPage: _currentLogicalPage,
+        imagePaths: _images,
         bookTitle: widget.book.title,
         bookPath: widget.book.filePath,
         onSettingsChanged: (next) => unawaited(_applySettings(next)),
@@ -737,10 +777,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           final target = page.clamp(0, _images.length - 1);
           _goTo(_indexForLogicalPage(target));
         },
-        onCloseBook: () {
-          Navigator.of(dialogContext).pop();
-          Navigator.of(context).pop();
-        },
+        onOpenLibrary: _leaveReader,
+        onImportFile: _leaveReader,
+        onDeleteBook: _deleteCurrentBook,
       ),
     );
   }

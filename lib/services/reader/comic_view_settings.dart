@@ -107,6 +107,8 @@ class ComicViewSettings {
     this.pageGap = 0,
     this.blankFirstPage = false,
     this.blur = 0,
+    this.sharpen = 0,
+    this.manualCrop = 0,
   });
 
   final ComicPageDirection direction;
@@ -176,6 +178,12 @@ class ComicViewSettings {
   /// 高斯模糊半径（0 表示关闭）。
   final double blur;
 
+  /// 锐化强度 0~1。
+  final double sharpen;
+
+  /// 手工裁切：四边各裁掉的百分比 0~0.3。
+  final double manualCrop;
+
   bool get hasColorAdjust =>
       brightness != 0 ||
       contrast != 1 ||
@@ -189,7 +197,9 @@ class ComicViewSettings {
       redBalance != 1 ||
       greenBalance != 1 ||
       blueBalance != 1 ||
-      blur > 0;
+      blur > 0 ||
+      sharpen > 0 ||
+      manualCrop > 0;
 
   ComicViewSettings copyWith({
     ComicPageDirection? direction,
@@ -219,6 +229,8 @@ class ComicViewSettings {
     double? pageGap,
     bool? blankFirstPage,
     double? blur,
+    double? sharpen,
+    double? manualCrop,
   }) {
     return ComicViewSettings(
       direction: direction ?? this.direction,
@@ -248,6 +260,8 @@ class ComicViewSettings {
       pageGap: pageGap ?? this.pageGap,
       blankFirstPage: blankFirstPage ?? this.blankFirstPage,
       blur: blur ?? this.blur,
+      sharpen: sharpen ?? this.sharpen,
+      manualCrop: manualCrop ?? this.manualCrop,
     );
   }
 
@@ -279,6 +293,8 @@ class ComicViewSettings {
     'pageGap': pageGap,
     'blankFirstPage': blankFirstPage,
     'blur': blur,
+    'sharpen': sharpen,
+    'manualCrop': manualCrop,
   };
 
   static ComicViewSettings fromJson(Map<String, dynamic> json) {
@@ -344,6 +360,8 @@ class ComicViewSettings {
       pageGap: asDouble(json['pageGap'], 0),
       blankFirstPage: json['blankFirstPage'] == true,
       blur: asDouble(json['blur'], 0),
+      sharpen: asDouble(json['sharpen'], 0),
+      manualCrop: asDouble(json['manualCrop'], 0),
     );
   }
 }
@@ -699,6 +717,10 @@ class ComicColorMatrix {
     }
     if (settings.gamma != 1) {
       matrix = multiply(gammaMatrix(settings.gamma), matrix);
+    }
+    // 锐化：以局部对比增强近似（无内置卷积滤镜，用对比度提升呈现）。
+    if (settings.sharpen > 0) {
+      matrix = multiply(contrastMatrix(100 + settings.sharpen * 34), matrix);
     }
     // 自动调整亮度对比：温和拉伸，避免过曝。
     if (settings.autoLevels) {
