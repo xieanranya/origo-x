@@ -208,16 +208,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return sum;
   }
 
-  int _indexAtOffset(double offset) {
-    if (_spreads.isEmpty) return 0;
-    var sum = 0.0;
-    for (var i = 0; i < _spreads.length; i++) {
-      sum += _heightOf(i);
-      if (offset < sum) return i;
-    }
-    return _spreads.length - 1;
-  }
-
   // ---------------------------------------------------------------- 翻页
 
   /// 垂直卷动模式下用变高列表（每页按图片比例撑开，宽度铺满）。
