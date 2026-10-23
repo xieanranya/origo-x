@@ -158,12 +158,12 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    // 与原版一致：面板只占屏幕约 88%，右侧与下方露出画面，点面板外即可返回。
+    // 面板占屏幕约 88% 并居中，四周露出画面，点面板外即可返回。
     return Material(
       color: Colors.transparent,
       child: SafeArea(
         child: Align(
-          alignment: Alignment.topLeft,
+          alignment: Alignment.center,
           child: SizedBox(
             width: media.size.width * 0.88,
             height: media.size.height * 0.88,
