@@ -29,7 +29,7 @@ enum ComicMenuTab {
 /// 面板配色与尺寸（对齐截图）。
 class _Pv {
   static const Color bar = Color(0xFF4650C8);
-  static const Color panel = Color(0xE6000000);
+  static const Color panel = Color(0xA6000000);
   static const Color divider = Color(0x0FFFFFFF);
   static const Color text = Colors.white;
   static const Color subText = Color(0xCCFFFFFF);
@@ -625,11 +625,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           iconColor: _Pv.toc,
           title: '阅读模式',
           values: ComicPageLayout.values,
-          labelOf: (value) => switch (value) {
-            ComicPageLayout.single => '单页模式',
-            ComicPageLayout.doublePage => '双页模式',
-            ComicPageLayout.auto => '自动识别',
-          },
+          labelOf: (value) => value.label,
           value: _settings.layout,
           onChanged: (value) => _update(_settings.copyWith(layout: value)),
         ),

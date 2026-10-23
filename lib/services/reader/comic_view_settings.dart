@@ -81,7 +81,7 @@ enum ComicFitMode {
 class ComicViewSettings {
   const ComicViewSettings({
     this.direction = ComicPageDirection.vertical,
-    this.layout = ComicPageLayout.auto,
+    this.layout = ComicPageLayout.verticalScroll,
     this.fitMode = ComicFitMode.fitWidth,
     this.cropBorders = true,
     this.splitDoublePage = false,
@@ -316,7 +316,7 @@ class ComicViewSettings {
       for (final item in ComicPageLayout.values) {
         if (item.name == value) return item;
       }
-      return ComicPageLayout.auto;
+      return ComicPageLayout.verticalScroll;
     }
 
     ComicFitMode parseFitMode(Object? value) {
@@ -537,43 +537,16 @@ class ComicPageComposer {
   }
 
   /// 把画面两两配对成「屏」。
+  /// 一帧一屏。双页扫描的切分已在 expandFrames 里完成，这里只做单页包装。
   static List<ComicSpread> composeSpreads({
     required List<ComicFrame> frames,
     required ComicViewSettings settings,
-    bool autoUseDouble = false,
   }) {
-    final useDouble =
-        settings.layout == ComicPageLayout.doublePage ||
-        (settings.layout == ComicPageLayout.auto && autoUseDouble);
-    if (!useDouble || frames.isEmpty) {
-      return frames
-          .map((frame) => ComicSpread(logicalPage: frame.logicalPage, left: frame))
-          .toList(growable: false);
-    }
-    final spreads = <ComicSpread>[];
-    for (var index = 0; index < frames.length; index += 2) {
-      final first = frames[index];
-      final second = index + 1 < frames.length ? frames[index + 1] : null;
-      if (settings.direction.reversed) {
-        // 日漫：先读的在右边。
-        spreads.add(
-          ComicSpread(
-            logicalPage: first.logicalPage,
-            right: first,
-            left: second,
-          ),
-        );
-      } else {
-        spreads.add(
-          ComicSpread(
-            logicalPage: first.logicalPage,
-            left: first,
-            right: second,
-          ),
-        );
-      }
-    }
-    return spreads;
+    return frames
+        .map(
+          (frame) => ComicSpread(logicalPage: frame.logicalPage, left: frame),
+        )
+        .toList(growable: false);
   }
 }
 

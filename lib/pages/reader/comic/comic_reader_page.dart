@@ -13,7 +13,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../models/book.dart';
 import '../../../services/books/book_dao.dart';
@@ -35,9 +34,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
-  final ItemScrollController _itemScrollController = ItemScrollController();
-  final ItemPositionsListener _itemPositionsListener =
-      ItemPositionsListener.create();
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   final Map<int, Rect?> _cropRects = <int, Rect?>{};
   final Set<int> _cropPending = <int>{};
@@ -49,7 +45,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
-  bool _landscape = false;
   double _viewport = 0;
   Timer? _saveDebounce;
   Timer? _autoTurnTimer;
@@ -58,7 +53,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
-    _itemPositionsListener.itemPositions.addListener(_handlePositions);
     _loadAll();
   }
 
@@ -67,7 +61,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _saveDebounce?.cancel();
     _autoTurnTimer?.cancel();
     _scrollController.removeListener(_handleScroll);
-    _itemPositionsListener.itemPositions.removeListener(_handlePositions);
     _scrollController.dispose();
     _pageController.dispose();
     _currentIndex.dispose();
@@ -131,7 +124,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final composed = ComicPageComposer.composeSpreads(
       frames: frames,
       settings: _settings,
-      autoUseDouble: _landscape,
     );
     // 空白封里：在最前面插入一屏空白。
     _spreads = _settings.blankFirstPage
@@ -177,60 +169,84 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return only == null ? 1.0 : _frameAspect(only);
   }
 
+  /// 某一屏在变高列表里的高度：屏宽 ÷ 该屏真实比例。
+  double _heightOf(int index) {
+    if (index < 0 || index >= _spreads.length) return 0;
+    final width = MediaQuery.of(context).size.width;
+    final aspect = _spreadAspect(_spreads[index]);
+    // 比例异常时按 0.7 兜底，避免出现 0 高度的空项。
+    final safeAspect = aspect > 0.05 ? aspect : 0.7;
+    return width / safeAspect;
+  }
+
+  double _offsetOf(int index) {
+    var sum = 0.0;
+    for (var i = 0; i < index && i < _spreads.length; i++) {
+      sum += _heightOf(i);
+    }
+    return sum;
+  }
+
+  int _indexAtOffset(double offset) {
+    if (_spreads.isEmpty) return 0;
+    var sum = 0.0;
+    for (var i = 0; i < _spreads.length; i++) {
+      sum += _heightOf(i);
+      if (offset < sum) return i;
+    }
+    return _spreads.length - 1;
+  }
+
   // ---------------------------------------------------------------- 翻页
 
-  /// 垂直 + 符合宽度时，用变高列表（每页按图片比例撑开，宽度铺满）。
+  /// 垂直卷动模式下用变高列表（每页按图片比例撑开，宽度铺满）。
   bool get _usesFitWidthList =>
-      !_settings.direction.isHorizontal &&
-      _settings.fitMode == ComicFitMode.fitWidth;
+      _settings.layout == ComicPageLayout.verticalScroll;
 
   void _jumpTo(int index) {
     if (_spreads.isEmpty) return;
-    if (_settings.direction.isHorizontal) {
-      if (_pageController.hasClients) _pageController.jumpToPage(index);
-      return;
-    }
-    if (_usesFitWidthList) {
-      if (_itemScrollController.isAttached) {
-        _itemScrollController.jumpTo(index: index);
-      }
-      return;
-    }
-    if (_scrollController.hasClients && _viewport > 0) {
-      final target = (index * _viewport).clamp(
-        0.0,
-        _scrollController.position.maxScrollExtent,
-      );
-      _scrollController.jumpTo(target);
+    switch (_settings.layout) {
+      case ComicPageLayout.page:
+        if (_pageController.hasClients) _pageController.jumpToPage(index);
+      case ComicPageLayout.verticalScroll:
+        if (_scrollController.hasClients) {
+          final target = _offsetOf(index).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          );
+          _scrollController.jumpTo(target);
+        }
+      case ComicPageLayout.horizontalScroll:
+        if (_scrollController.hasClients) {
+          final width = MediaQuery.of(context).size.width;
+          final target = (index * width).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          );
+          _scrollController.jumpTo(target);
+        }
     }
   }
 
   void _handleScroll() {
-    if (_settings.direction.isHorizontal || _usesFitWidthList) return;
-    if (_viewport <= 0 || _spreads.isEmpty) return;
-    final offset = _scrollController.position.pixels + _viewport * 0.5;
-    final index = (offset / _viewport).floor().clamp(0, _spreads.length - 1);
+    if (_spreads.isEmpty || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final int index;
+    switch (_settings.layout) {
+      case ComicPageLayout.verticalScroll:
+        index = _indexAtOffset(
+          position.pixels + (_viewport <= 0 ? 0 : _viewport * 0.5),
+        );
+      case ComicPageLayout.horizontalScroll:
+        final width = MediaQuery.of(context).size.width;
+        if (width <= 0) return;
+        index = (position.pixels / width)
+            .round()
+            .clamp(0, _spreads.length - 1);
+      case ComicPageLayout.page:
+        return;
+    }
     if (index != _currentIndex.value) {
-      _currentIndex.value = index;
-      _scheduleSave();
-    }
-  }
-
-  void _handlePositions() {
-    if (!_usesFitWidthList) return;
-    final positions = _itemPositionsListener.itemPositions.value;
-    if (positions.isEmpty) return;
-    ItemPosition? best;
-    for (final position in positions) {
-      if (position.itemTrailingEdge <= 0 || position.itemLeadingEdge >= 1) {
-        continue;
-      }
-      if (best == null || position.itemLeadingEdge < best.itemLeadingEdge) {
-        best = position;
-      }
-    }
-    final index = best?.index;
-    if (index != null && index != _currentIndex.value) {
       _currentIndex.value = index;
       _scheduleSave();
     }
@@ -239,7 +255,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void _goTo(int index) {
     if (_spreads.isEmpty) return;
     final target = index.clamp(0, _spreads.length - 1);
-    if (_settings.direction.isHorizontal) {
+    if (_settings.layout == ComicPageLayout.page) {
       if (_pageController.hasClients) {
         _pageController.animateToPage(
           target,
@@ -384,22 +400,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final media = MediaQuery.of(context);
     final viewport =
         media.size.height - media.padding.top - media.padding.bottom;
-    final landscape = media.size.width > media.size.height;
-    if (landscape != _landscape && !_loading) {
-      // 横竖屏切换影响「自动」版面，重建一次。
-      _landscape = landscape;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final anchor = _currentLogicalPage;
-        setState(() {
-          _rebuildSpreads();
-          _currentIndex.value = _indexForLogicalPage(anchor);
-        });
-      });
-    } else {
-      _landscape = landscape;
-    }
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: _loading
@@ -415,9 +415,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return Stack(
       children: [
         Positioned.fill(
-          child: _settings.direction.isHorizontal
-              ? _buildHorizontal()
-              : _buildVertical(viewport),
+          child: switch (_settings.layout) {
+            ComicPageLayout.page => _buildHorizontal(),
+            ComicPageLayout.horizontalScroll => _buildHorizontalScroll(),
+            ComicPageLayout.verticalScroll => _buildVertical(viewport),
+          },
         ),
         // 过滤蓝光：琥珀色蒙版；背光控制：黑色蒙版压暗整体。
         if (_settings.blueLightFilter > 0)
@@ -489,14 +491,15 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   Widget _buildVertical(double viewport) {
     if (_usesFitWidthList) {
-      return ScrollablePositionedList.builder(
-        itemScrollController: _itemScrollController,
-        itemPositionsListener: _itemPositionsListener,
+      // 普通 ListView 支持项高度动态变化：图片加载后比例修正，高度会跟着重算，
+      // 不会像 ScrollablePositionedList 那样留下大片黑缝。
+      return ListView.builder(
+        controller: _scrollController,
         itemCount: _spreads.length,
-        itemBuilder: (context, index) => Padding(
-          padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
-          child: AspectRatio(
-            aspectRatio: _spreadAspect(_spreads[index]),
+        itemBuilder: (context, index) => SizedBox(
+          height: _heightOf(index),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
             child: _buildSpread(index),
           ),
         ),
@@ -524,6 +527,24 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       itemBuilder: (context, index) => Padding(
         padding: EdgeInsets.symmetric(horizontal: _settings.pageGap / 2),
         child: _buildSpread(index),
+      ),
+    );
+  }
+
+  /// 水平卷动模式：一页一屏横向连续滚动。
+  Widget _buildHorizontalScroll() {
+    final width = MediaQuery.of(context).size.width;
+    return ListView.builder(
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      reverse: _settings.direction.reversed,
+      itemCount: _spreads.length,
+      itemBuilder: (context, index) => SizedBox(
+        width: width,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: _settings.pageGap / 2),
+          child: _buildSpread(index),
+        ),
       ),
     );
   }
