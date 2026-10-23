@@ -491,17 +491,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   Widget _buildVertical(double viewport) {
     if (_usesFitWidthList) {
-      // 普通 ListView 支持项高度动态变化：图片加载后比例修正，高度会跟着重算，
-      // 不会像 ScrollablePositionedList 那样留下大片黑缝。
+      // 不给项指定高度：由图片按自身比例撑开，杜绝估算比例造成的黑缝。
       return ListView.builder(
         controller: _scrollController,
         itemCount: _spreads.length,
-        itemBuilder: (context, index) => SizedBox(
-          height: _heightOf(index),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
-            child: _buildSpread(index),
-          ),
+        itemBuilder: (context, index) => Padding(
+          padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
+          child: _buildSpread(index),
         ),
       );
     }
@@ -566,6 +562,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     if (left != null) _ensureCropDetected(left.logicalPage);
     if (right != null) _ensureCropDetected(right.logicalPage);
 
+    // 单页直接返回，让外层列表依据图片高度自适应。
+    if (left != null && right == null) return _buildFrame(left);
     final children = <Widget>[];
     if (left != null) children.add(Expanded(child: _buildFrame(left)));
     if (right != null) children.add(Expanded(child: _buildFrame(right)));
@@ -622,10 +620,41 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final matrix = _settings.hasColorAdjust
         ? ComicColorMatrix.fromSettings(_settings)
         : null;
-    // 一律保持原图比例：容器高度是估算值时，fill 会把画面纵向拉伸。
+
+    // 不需要裁剪（无白边裁剪 / 无手工裁切 / 未切分双页）时，直接用 Image 渲染：
+    // 宽度铺满、高度由图片自身比例决定，不需要任何高度估算。
+    final needsCropPaint =
+        src != ComicPageComposer.fullRect ||
+        _settings.cropBorders ||
+        _settings.manualCrop > 0;
+    if (!needsCropPaint) {
+      Widget plain = Image.file(
+        File(frame.imagePath),
+        fit: BoxFit.fitWidth,
+        width: double.infinity,
+        cacheWidth: 1600,
+        errorBuilder: (_, _, _) => const Icon(
+          Icons.broken_image_outlined,
+          color: Colors.white54,
+          size: 48,
+        ),
+      );
+      if (matrix != null) {
+        plain = ColorFiltered(
+          colorFilter: ColorFilter.matrix(matrix),
+          child: plain,
+        );
+      }
+      return plain;
+    }
+
+    // 需要裁剪时走画布：此时必须已有真实尺寸，否则先用零高度占位。
     final fit = _usesFitWidthList ? BoxFit.fitWidth : _boxFitForMode();
-    return ClipRect(
-      child: SizedBox.expand(
+    final aspect = _frameAspect(frame);
+    final safeAspect = aspect > 0.05 ? aspect : 0.7;
+    return AspectRatio(
+      aspectRatio: safeAspect,
+      child: ClipRect(
         child: CustomPaint(
           painter: _ComicFramePainter(
             image: image,
