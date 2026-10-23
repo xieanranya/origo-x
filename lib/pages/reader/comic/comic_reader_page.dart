@@ -37,6 +37,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   final Map<int, Rect?> _cropRects = <int, Rect?>{};
   final Set<int> _cropPending = <int>{};
+  final Set<String> _aspectPending = <String>{};
   final _ComicImageCache _imageCache = _ComicImageCache();
 
   List<String> _images = const <String>[];
@@ -46,6 +47,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   bool _loading = true;
   bool _controlsVisible = true;
   double _viewport = 0;
+  double _screenWidth = 0;
+  /// 平均每屏高度，用于滚动时的 O(1) 页码估算。
+  double _averageHeight = 0;
   Timer? _saveDebounce;
   Timer? _autoTurnTimer;
 
@@ -92,16 +96,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
       _images = files.map((file) => file.path).toList(growable: false);
     }
-    // 只有开启双页分割时才全量探测；否则只探测首屏附近若干页，保证开头比例准确。
-    if (_settings.splitDoublePage) {
-      _aspects = await ComicPageComposer.probeAspects(_images);
-    } else if (_images.isNotEmpty) {
-      final start = widget.book.currentPage.clamp(0, _images.length - 1);
-      final from = math.max(0, start - 2);
-      final to = math.min(_images.length, start + 12);
-      _aspects = await ComicPageComposer.probeAspects(
-        _images.sublist(from, to),
-      );
+    // 宽高比只在需要裁剪/双页切分时才用到，且不阻塞首屏：
+    // 先按兜底比例排版并立即显示，比例在后台补。
+    if (_settings.splitDoublePage && _images.isNotEmpty) {
+      unawaited(_probeAllAspects());
     }
     _rebuildSpreads();
     _currentIndex.value = _indexForLogicalPage(widget.book.currentPage);
@@ -111,6 +109,21 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       (_) => _jumpTo(_currentIndex.value),
     );
     _restartAutoTurn();
+  }
+
+  /// 后台串行探测比例，不阻塞界面；仅补足尚未记录的比例。
+  Future<void> _probeAllAspects() async {
+    const chunk = 24;
+    for (var start = 0; start < _images.length; start += chunk) {
+      final end = math.min(start + chunk, _images.length);
+      final slice = _images.sublist(start, end);
+      final probed = await ComicPageComposer.probeAspects(slice);
+      if (!mounted) return;
+      if (probed.isEmpty) continue;
+      setState(() {
+        _aspects = <String, double>{..._aspects, ...probed};
+      });
+    }
   }
 
   // ---------------------------------------------------------- 页面编排
@@ -129,6 +142,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _spreads = _settings.blankFirstPage
         ? <ComicSpread>[const ComicSpread(logicalPage: 0), ...composed]
         : composed;
+
+    // 预估平均高度（用兜底比例即可），滚动时据此 O(1) 估算页码。
+    final width = _screenWidth > 0
+        ? _screenWidth
+        : MediaQuery.of(context).size.width;
+    _averageHeight = _spreads.isEmpty ? 0 : width / 0.7;
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -172,7 +191,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   /// 某一屏在变高列表里的高度：屏宽 ÷ 该屏真实比例。
   double _heightOf(int index) {
     if (index < 0 || index >= _spreads.length) return 0;
-    final width = MediaQuery.of(context).size.width;
+    final width = _screenWidth > 0
+        ? _screenWidth
+        : MediaQuery.of(context).size.width;
     final aspect = _spreadAspect(_spreads[index]);
     // 比例异常时按 0.7 兜底，避免出现 0 高度的空项。
     final safeAspect = aspect > 0.05 ? aspect : 0.7;
@@ -234,9 +255,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final int index;
     switch (_settings.layout) {
       case ComicPageLayout.verticalScroll:
-        index = _indexAtOffset(
-          position.pixels + (_viewport <= 0 ? 0 : _viewport * 0.5),
-        );
+        // 用平均高度做 O(1) 估算，避免每帧遍历上千页。
+        if (_averageHeight <= 0) return;
+        final ratio = (position.pixels + _viewport * 0.5) / _averageHeight;
+        index = ratio.round().clamp(0, _spreads.length - 1);
       case ComicPageLayout.horizontalScroll:
         final width = MediaQuery.of(context).size.width;
         if (width <= 0) return;
@@ -371,8 +393,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   /// 按需探测单页真实宽高比，供变高列表计算正确高度。
   void _ensureAspect(String? path) {
-    if (path == null || _aspects.containsKey(path)) return;
+    if (path == null) return;
+    if (_aspects.containsKey(path) || _aspectPending.contains(path)) return;
+    _aspectPending.add(path);
     ComicPageComposer.probeAspects(<String>[path]).then((probed) {
+      _aspectPending.remove(path);
       if (!mounted || probed.isEmpty) return;
       setState(() => _aspects = <String, double>{..._aspects, ...probed});
     });
@@ -398,6 +423,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    _screenWidth = media.size.width;
     final viewport =
         media.size.height - media.padding.top - media.padding.bottom;
     return Scaffold(
