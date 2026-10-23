@@ -151,11 +151,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.package.outputs.tag }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/app-ios-*.ipa --clobber
-          else
-            gh release create "$TAG" build/app-ios-*.ipa --title "易读 $TAG" --notes "iOS 未签名 IPA，TrollStore / AltStore / Sideloadly 侧载安装。"
-          fi
+          ls -la build/*.ipa
+          # 两个 job 并发：先确保 release 存在（不带资产），再各自上传，避免互相挤掉。
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "易读 $TAG" --notes "iOS 未签名 IPA + 安卓 APK。iOS 用 TrollStore / AltStore / Sideloadly 侧载。" \
+            || true
+          gh release upload "$TAG" build/app-ios-*.ipa --clobber
 
   build-android:
     name: Build Android APK
@@ -223,6 +224,9 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | tr -d '\r')
           TAG="v${VERSION%%+*}"
           APK=build/app/outputs/flutter-apk/app-release.apk
-          # 建库不存在则创建，已存在则追加资源（与 iOS job 容错竞争）
-          gh release create "$TAG" "$APK" --title "易读 $TAG" --notes "本地小说阅读器：iOS 未签名 IPA + 安卓 APK。iOS 用 TrollStore / AltStore / Sideloadly 侧载。" \
-            || gh release upload "$TAG" "$APK" --clobber
+          ls -la "$APK"
+          # 与 iOS job 并发：先确保 release 存在，再上传，两边互不覆盖。
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "易读 $TAG" --notes "iOS 未签名 IPA + 安卓 APK。iOS 用 TrollStore / AltStore / Sideloadly 侧载。" \
+            || true
+          gh release upload "$TAG" "$APK" --clobber
