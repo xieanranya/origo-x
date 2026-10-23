@@ -99,10 +99,17 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
       _images = files.map((file) => file.path).toList(growable: false);
     }
-    // 只有开启双页分割时才需要宽高比，避免几百页漫画白等一轮探测。
-    _aspects = _settings.splitDoublePage
-        ? await ComicPageComposer.probeAspects(_images)
-        : <String, double>{};
+    // 只有开启双页分割时才全量探测；否则只探测首屏附近若干页，保证开头比例准确。
+    if (_settings.splitDoublePage) {
+      _aspects = await ComicPageComposer.probeAspects(_images);
+    } else if (_images.isNotEmpty) {
+      final start = widget.book.currentPage.clamp(0, _images.length - 1);
+      final from = math.max(0, start - 2);
+      final to = math.min(_images.length, start + 12);
+      _aspects = await ComicPageComposer.probeAspects(
+        _images.sublist(from, to),
+      );
+    }
     _rebuildSpreads();
     _currentIndex.value = _indexForLogicalPage(widget.book.currentPage);
     if (!mounted) return;
@@ -149,9 +156,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   /// 单帧在屏幕上应占的宽高比（已考虑双页切分区域）。
   double _frameAspect(ComicFrame frame) {
     final image = _imageCache.get(frame.imagePath);
+    final probed = _aspects[frame.imagePath];
+    final fallback = frame.imageAspect > 0 ? frame.imageAspect : 0.7;
     final base = image != null && image.height > 0
         ? image.width / image.height
-        : (frame.imageAspect > 0 ? frame.imageAspect : 0.7);
+        : (probed != null && probed > 0 ? probed : fallback);
     final widthRatio = frame.src.width <= 0 ? 1.0 : frame.src.width;
     final heightRatio = frame.src.height <= 0 ? 1.0 : frame.src.height;
     return base * (widthRatio / heightRatio);
@@ -344,6 +353,15 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     });
   }
 
+  /// 按需探测单页真实宽高比，供变高列表计算正确高度。
+  void _ensureAspect(String? path) {
+    if (path == null || _aspects.containsKey(path)) return;
+    ComicPageComposer.probeAspects(<String>[path]).then((probed) {
+      if (!mounted || probed.isEmpty) return;
+      setState(() => _aspects = <String, double>{..._aspects, ...probed});
+    });
+  }
+
   Future<Rect?> _detectCrop(String path) async {
     try {
       final bytes = await File(path).readAsBytes();
@@ -520,6 +538,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return const ColoredBox(color: Colors.black);
     }
     _ensureCropDetected(spread.logicalPage);
+    _ensureAspect(spread.left?.imagePath);
+    _ensureAspect(spread.right?.imagePath);
     final left = spread.left;
     final right = spread.right;
     if (left != null) _ensureCropDetected(left.logicalPage);
@@ -581,8 +601,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final matrix = _settings.hasColorAdjust
         ? ComicColorMatrix.fromSettings(_settings)
         : null;
-    // 变高列表里容器比例已等于内容比例，用 fill 才能真正铺满宽度。
-    final fit = _usesFitWidthList ? BoxFit.fill : _boxFitForMode();
+    // 一律保持原图比例：容器高度是估算值时，fill 会把画面纵向拉伸。
+    final fit = _usesFitWidthList ? BoxFit.fitWidth : _boxFitForMode();
     return ClipRect(
       child: SizedBox.expand(
         child: CustomPaint(
@@ -815,7 +835,11 @@ class _ComicFramePainter extends CustomPainter {
     if (srcPixels.width <= 0 || srcPixels.height <= 0) return;
 
     final fitted = applyBoxFit(fit, srcPixels.size, size);
-    final destination = Alignment.center.inscribe(
+    // 符合宽度时顶部对齐：比例估小的情况下留白落在下方，符合长条漫阅读习惯。
+    final alignment = fit == BoxFit.fitWidth
+        ? Alignment.topCenter
+        : Alignment.center;
+    final destination = alignment.inscribe(
       fitted.destination,
       Offset.zero & size,
     );
