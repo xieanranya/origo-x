@@ -31,8 +31,8 @@ PUBLIC_SIGNING_FILES = {'android/app/yidu-release.p12'}
 CONTENT_CHECKS = {
     'private home path': re.compile(r'(?:/Users/|/home/)[A-Za-z0-9_.-]+/|[A-Za-z]:\\Users\\'),
     'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
-    # 只抓带引号的字面量密码；从环境变量读取（System.getenv）不算硬编码。
-    'stored signing password': re.compile(r'(?:keyPassword|storePassword)\s*[:=]\s*[\"\'][^\"\']+[\"\']', re.I),
+    # 抓密码赋值；从环境变量读取（System.getenv）属合规写法，用负向前查排除。
+    'stored signing password': re.compile(r'(?:keyPassword|storePassword)\s*[:=]\s*(?!System\.getenv)[^\s,;\"\']+', re.I),
     'access credential': re.compile(r'\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,})\b'),
     'production backend': re.compile(r'/api/' r'v1/|(?:^|\s)sshpass(?:\s|$)|appstoreconnect\.env'),
     'developer signing identity': re.compile(r'DEVELOPMENT_TEAM\s*=\s*[^;\s"]|PROVISIONING_PROFILE_SPECIFIER\s*=\s*[^;\s"]', re.I),
