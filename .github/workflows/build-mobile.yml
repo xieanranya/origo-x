@@ -169,12 +169,29 @@ jobs:
       - run: |
           flutter pub get
           flutter gen-l10n
+      # runner 默认 JDK 已升到 25.0.4.1，Kotlin 编译器解析该版本号会抛
+      # IllegalArgumentException: 25.0.4.1，因此显式切到 runner 自带的 JDK 21。
+      - name: Select JDK 21 (Kotlin cannot parse JDK 25.0.4.1)
+        run: |
+          echo "--- 可用 JDK ---"
+          ls /usr/lib/jvm || true
+          JDK=""
+          for v in 21 17; do
+            found=$(ls -d /usr/lib/jvm/*"${v}"* 2>/dev/null | grep -v -i "jre" | head -1)
+            if [ -n "$found" ]; then JDK="$found"; break; fi
+          done
+          if [ -z "$JDK" ]; then echo "未找到 JDK 21/17"; exit 1; fi
+          echo "JAVA_HOME=$JDK" >> "$GITHUB_ENV"
+          echo "已选择 JDK: $JDK"
+          "$JDK/bin/java" -version 2>&1 | head -2
       # 详细日志落盘，失败时推到 ci-logs-android，便于在本地直接读 Gradle 报错。
       - name: Build APK
         id: apk_build
         continue-on-error: true
         run: |
           set -o pipefail
+          flutter config --jdk-dir "$JAVA_HOME" || true
+          java -version 2>&1 | head -2
           flutter build apk --release -v 2>&1 | tee /tmp/apk.log
           exit ${PIPESTATUS[0]}
       - name: Push APK build log (on failure)
