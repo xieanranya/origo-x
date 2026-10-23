@@ -25,11 +25,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // 固定 release 签名：CI 每次生成的 debug 密钥都不同，会导致安装时签名冲突、
+    // 必须卸载旧版本才能装新版。这里用仓库内固定的 PKCS12 密钥，保证可以覆盖升级。
+    signingConfigs {
+        create("release") {
+            storeFile = file("yidu-release.p12")
+            storePassword = "yidu2026"
+            keyAlias = "yidu"
+            keyPassword = "yidu2026"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

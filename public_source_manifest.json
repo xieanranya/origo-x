@@ -31,6 +31,7 @@
     "android/gradle.properties",
     "android/gradle/wrapper/gradle-wrapper.properties",
     "android/settings.gradle.kts",
+    "android/app/yidu-release.p12",
     "assets/fonts/README.md",
     "assets/fonts/ReaderIndent.ttf",
     "assets/fonts/licenses/DartQr-BSD-3-Clause.txt",
