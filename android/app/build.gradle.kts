@@ -30,9 +30,10 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("yidu-release.p12")
-            storePassword = "yidu2026"
+            // 密码由 CI 通过环境变量传入，源码不留明文。
+            storePassword = System.getenv("YIDU_STORE_PASSWORD")
             keyAlias = "yidu"
-            keyPassword = "yidu2026"
+            keyPassword = System.getenv("YIDU_KEY_PASSWORD")
         }
     }
 

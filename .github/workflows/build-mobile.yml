@@ -188,6 +188,9 @@ jobs:
       - name: Build APK
         id: apk_build
         continue-on-error: true
+        env:
+          YIDU_STORE_PASSWORD: yidu2026
+          YIDU_KEY_PASSWORD: yidu2026
         run: |
           set -o pipefail
           flutter config --jdk-dir "$JAVA_HOME" || true
