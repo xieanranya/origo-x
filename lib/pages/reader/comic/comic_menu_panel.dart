@@ -96,6 +96,7 @@ class ComicMenuPanel extends StatefulWidget {
 
 class _ComicMenuPanelState extends State<ComicMenuPanel> {
   ComicMenuTab _tab = ComicMenuTab.menu;
+  final PageController _tabController = PageController();
   late ComicViewSettings _settings = widget.settings;
   bool _colorMasterOn = true;
   List<int> _bookmarks = const <int>[];
@@ -105,6 +106,25 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   void initState() {
     super.initState();
     _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// 切换页签（支持点按与左右滑动两种方式）。
+  void _switchTab(ComicMenuTab tab) {
+    if (tab == _tab) return;
+    setState(() => _tab = tab);
+    if (_tabController.hasClients) {
+      _tabController.animateToPage(
+        tab.index,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -164,7 +184,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           for (final tab in ComicMenuTab.values)
             Expanded(
               child: InkWell(
-                onTap: () => setState(() => _tab = tab),
+                onTap: () => _switchTab(tab),
                 child: Container(
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -191,14 +211,23 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   // ---------------------------------------------------------------- 内容
 
   Widget _buildBody() {
-    return switch (_tab) {
-      ComicMenuTab.menu => _buildMainMenu(),
-      ComicMenuTab.catalog => _buildCatalog(),
-      ComicMenuTab.color => _buildColorTab(),
-      ComicMenuTab.settings => _buildSettingsTab(),
-      ComicMenuTab.history => _buildHistoryTab(),
-      ComicMenuTab.bookmark => _buildBookmarkTab(),
-    };
+    // PageView 让左右滑动就能切换页签，和原版一致。
+    return PageView(
+      controller: _tabController,
+      onPageChanged: (index) {
+        if (index >= 0 && index < ComicMenuTab.values.length) {
+          setState(() => _tab = ComicMenuTab.values[index]);
+        }
+      },
+      children: [
+        _buildMainMenu(),
+        _buildCatalog(),
+        _buildColorTab(),
+        _buildSettingsTab(),
+        _buildHistoryTab(),
+        _buildBookmarkTab(),
+      ],
+    );
   }
 
   Widget _buildMainMenu() {
@@ -274,7 +303,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           icon: Icons.toc_rounded,
           iconColor: _Pv.toc,
           title: '目次',
-          onTap: () => setState(() => _tab = ComicMenuTab.catalog),
+          onTap: () => _switchTab(ComicMenuTab.catalog),
         ),
         _PvItem(
           icon: Icons.info_outline_rounded,
@@ -651,6 +680,14 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
           title: '点击区域翻页',
           value: _settings.tapToTurn,
           onChanged: (value) => _update(_settings.copyWith(tapToTurn: value)),
+        ),
+        _PvSwitchItem(
+          icon: Icons.linear_scale_rounded,
+          iconColor: _Pv.forward,
+          title: '显示进度条',
+          value: _settings.showProgressBar,
+          onChanged: (value) =>
+              _update(_settings.copyWith(showProgressBar: value)),
         ),
         _PvSwitchItem(
           icon: Icons.slideshow_rounded,

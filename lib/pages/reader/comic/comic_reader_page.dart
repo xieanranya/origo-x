@@ -695,42 +695,78 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildBottomBar() {
+    final last = _spreads.length - 1;
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _pagePill(Icons.chevron_left_rounded, _previousPage),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(14),
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 进度条：可拖动快速跳页；页码浮层照旧保留。
+            if (_settings.showProgressBar)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: ValueListenableBuilder<int>(
                   valueListenable: _currentIndex,
-                  builder: (context, index, _) => Text(
-                    '${index + 1} / ${_spreads.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                  builder: (context, index, _) => SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2.5,
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 12,
+                      ),
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 6,
+                      ),
+                      activeTrackColor: Colors.white,
+                      inactiveTrackColor: const Color(0x55FFFFFF),
+                      thumbColor: Colors.white,
+                    ),
+                    child: Slider(
+                      value: index.toDouble().clamp(
+                        0.0,
+                        last > 0 ? last.toDouble() : 1.0,
+                      ).toDouble(),
+                      max: last > 1 ? last.toDouble() : 1.0,
+                      onChanged: (value) => _goTo(value.round()),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              _pagePill(Icons.chevron_right_rounded, _nextPage),
-            ],
-          ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _pagePill(Icons.chevron_left_rounded, _previousPage),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _currentIndex,
+                      builder: (context, index, _) => Text(
+                        '${index + 1} / ${_spreads.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _pagePill(Icons.chevron_right_rounded, _nextPage),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

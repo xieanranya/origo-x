@@ -109,6 +109,7 @@ class ComicViewSettings {
     this.blur = 0,
     this.sharpen = 0,
     this.manualCrop = 0,
+    this.showProgressBar = true,
   });
 
   final ComicPageDirection direction;
@@ -184,6 +185,9 @@ class ComicViewSettings {
   /// 手工裁切：四边各裁掉的百分比 0~0.3。
   final double manualCrop;
 
+  /// 底部显示进度条。
+  final bool showProgressBar;
+
   bool get hasColorAdjust =>
       brightness != 0 ||
       contrast != 1 ||
@@ -231,6 +235,7 @@ class ComicViewSettings {
     double? blur,
     double? sharpen,
     double? manualCrop,
+    bool? showProgressBar,
   }) {
     return ComicViewSettings(
       direction: direction ?? this.direction,
@@ -262,6 +267,7 @@ class ComicViewSettings {
       blur: blur ?? this.blur,
       sharpen: sharpen ?? this.sharpen,
       manualCrop: manualCrop ?? this.manualCrop,
+      showProgressBar: showProgressBar ?? this.showProgressBar,
     );
   }
 
@@ -295,6 +301,7 @@ class ComicViewSettings {
     'blur': blur,
     'sharpen': sharpen,
     'manualCrop': manualCrop,
+    'showProgressBar': showProgressBar,
   };
 
   static ComicViewSettings fromJson(Map<String, dynamic> json) {
@@ -362,6 +369,7 @@ class ComicViewSettings {
       blur: asDouble(json['blur'], 0),
       sharpen: asDouble(json['sharpen'], 0),
       manualCrop: asDouble(json['manualCrop'], 0),
+      showProgressBar: json['showProgressBar'] != false,
     );
   }
 }
