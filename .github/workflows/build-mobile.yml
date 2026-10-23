@@ -169,8 +169,27 @@ jobs:
       - run: |
           flutter pub get
           flutter gen-l10n
+      # 详细日志落盘，失败时推到 ci-logs-android，便于在本地直接读 Gradle 报错。
       - name: Build APK
-        run: flutter build apk --release
+        id: apk_build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          flutter build apk --release -v 2>&1 | tee /tmp/apk.log
+          exit ${PIPESTATUS[0]}
+      - name: Push APK build log (on failure)
+        if: steps.apk_build.outcome == 'failure'
+        run: |
+          git config user.email "ci@local"
+          git config user.name "ci"
+          git checkout -B ci-logs-android
+          cp /tmp/apk.log apk.log
+          git add -f apk.log
+          git commit -m "ci: apk build log"
+          git push -f origin ci-logs-android
+      - name: Fail if APK build failed
+        if: steps.apk_build.outcome == 'failure'
+        run: exit 1
       - name: Upload APK Artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
