@@ -33,11 +33,11 @@ extension ComicPageDirectionLabel on ComicPageDirection {
   bool get reversed => this == ComicPageDirection.horizontalRight;
 }
 
-/// 版面：单页 / 双页并排。
+/// 阅读模式：页模式 / 垂直卷动模式 / 水平卷动模式（对齐原版）。
 enum ComicPageLayout {
-  single('单页'),
-  doublePage('双页并排'),
-  auto('自动');
+  page('页模式'),
+  verticalScroll('垂直卷动模式'),
+  horizontalScroll('水平卷动模式');
 
   const ComicPageLayout(this.label);
 
