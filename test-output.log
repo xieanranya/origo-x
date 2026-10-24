@@ -1,0 +1,216 @@
+===== test/book_import_models_test.dart =====
+
+✅ 本地书籍元数据可以完整地写入并恢复
+✅ withBytes 防御性复制并暴露不可变字节
+
+🎉 2 tests passed.
+===== test/book_note_dao_test.dart =====
+
+✅ text annotations still merge by CFI and can be found by UUID
+✅ ink annotations at the same CFI remain distinct
+✅ text annotations merge without loading ink at the same CFI
+
+🎉 3 tests passed.
+===== test/book_note_lookup_index_migration_test.dart =====
+
+✅ v23 migration adds the CFI lookup index and is idempotent
+
+🎉 1 test passed.
+===== test/book_note_model_test.dart =====
+
+✅ database map round-trip preserves annotation persistence fields
+✅ new and legacy-loaded notes receive stable UUID identities
+✅ legacy ink remains readable from persisted data
+
+🎉 3 tests passed.
+===== test/bookmark_model_test.dart =====
+
+✅ bookmark preserves stable locator and display metadata
+
+🎉 1 test passed.
+===== test/canonical_locator_test.dart =====
+
+✅ TextAnchor normalizes text and clamps offsets to non-negative values
+✅ TextAnchor round-trips every persisted field through LocatorCodec
+✅ CanonicalLocator builds and parses encoded text anchor hrefs
+✅ CanonicalLocator clamps progression and decodes unknown formats safely
+✅ CanonicalLocator round-trips every persisted field through LocatorCodec
+✅ RenderedLocator uses the Flutter-native renderer when stored data is unknown
+✅ RenderedLocator round-trips generic renderer identifiers
+✅ RenderedLocator normalizes boundaries and round-trips optional fields
+✅ AnnotationAnchor round-trips nested locator and text anchor values
+✅ AnnotationAnchor uses stable fallbacks for unknown enum values
+✅ ReaderSelection derives canonical text data and rendered location metadata
+✅ ReaderSelection round-trips every persisted field through LocatorCodec
+✅ LocatorCodec malformed input returns null for empty, malformed, and non-object JSON
+
+🎉 13 tests passed.
+===== test/epub_native_parser_test.dart =====
+
+✅ indexes every spine document and preserves navigation depth
+✅ keeps text, headings, inline styles, fonts, and exact image paths
+✅ uses an available embedded font after missing CSS fallbacks
+✅ does not claim an embedded font whose file is absent
+✅ keeps distinct embedded fonts with Chinese family names
+✅ reopens parsed chapters from cache without reading the EPUB again
+✅ relocates cached paths after an iOS application container change
+✅ rejects an index after the source fingerprint changes
+✅ extracts metadata without materializing every EPUB resource
+✅ supports EPUB 3 navigation and manifest fallback without a spine
+
+🎉 10 tests passed.
+===== test/local_library_page_test.dart =====
+
+lib/pages/reader/comic/comic_reader_page.dart:509:28: Error: The argument type 'int' can't be assigned to the parameter type 'ScrollCacheExtent?'.
+ - 'ScrollCacheExtent' is from 'package:flutter/src/rendering/viewport.dart' ('/opt/hostedtoolcache/flutter/stable-3.44.4-x64/flutter/packages/flutter/lib/src/rendering/viewport.dart').
+        scrollCacheExtent: 0,
+                           ^
+::group::❌ loading /home/runner/work/origo-x/origo-x/test/local_library_page_test.dart (failed)
+Failed to load "/home/runner/work/origo-x/origo-x/test/local_library_page_test.dart":
+Compilation failed for testPath=/home/runner/work/origo-x/origo-x/test/local_library_page_test.dart: lib/pages/reader/comic/comic_reader_page.dart:509:28: Error: The argument type 'int' can't be assigned to the parameter type 'ScrollCacheExtent?'.
+ - 'ScrollCacheExtent' is from 'package:flutter/src/rendering/viewport.dart' ('/opt/hostedtoolcache/flutter/stable-3.44.4-x64/flutter/packages/flutter/lib/src/rendering/viewport.dart').
+        scrollCacheExtent: 0,
+                           ^
+.
+
+::endgroup::
+
+::error::0 tests passed, 1 failed.
+===== test/native_text_paginator_test.dart =====
+
+✅ reader body font size is independent from platform text scaling
+✅ the widest typography still paginates on a small phone viewport
+✅ large text pages preserve content and fit complete visual lines
+✅ pagination remains exact across sizes and nonlinear inputs
+✅ rich text uses the same line layout as the final page slice
+✅ pages pack densely under production height behavior
+✅ only the first page uses a reduced text height beside an image
+✅ measured page and RenderParagraph share identical constraints
+
+🎉 8 tests passed.
+===== test/public_local_services_test.dart =====
+
+::group::✅ imports a real TXT file into managed storage and SQLite
+文件复制完成: 0.0000514984130859375 MB
+::endgroup::
+::group::✅ imports real EPUB metadata and persists the local book
+文件复制完成: 0.0010213851928710938 MB
+::endgroup::
+✅ materializes fresh Web picker bytes before inserting the book
+✅ records local reading sessions and summarizes their duration
+✅ upgrades legacy local books and annotations without remote schema
+
+🎉 5 tests passed.
+===== test/public_native_epub_transition_test.dart =====
+
+::group::✅ local EPUB turns across chapters with one page controller
+[reader-horizontal] load window target=0 current=0 first=0 last=2 retain=false
+[reader-horizontal] load window complete target=0 retained=0 cacheLayouts=0
+[reader-horizontal] pageChanged index=8 target=0:8 controller=65544.00 generation=0 window=0..2 items=28
+[reader-horizontal] window maintenance requested controller=65544.00 generation=0 pending=backward=false contraction=false forward=false
+[reader-horizontal] pageChanged index=9 target=1:0 controller=65545.00 generation=0 window=0..2 items=28
+[reader-horizontal] defer page state until idle target=1:0
+[reader-horizontal] window maintenance requested controller=65545.00 generation=0 pending=backward=false contraction=false forward=false
+[reader-horizontal] defer window maintenance until idle controller=65545.00 generation=0
+[reader-horizontal] commit forward expansion window=0..3 controller=65545.00
+::endgroup::
+
+🎉 1 test passed.
+===== test/public_native_txt_pagination_test.dart =====
+
+::group::✅ local TXT opens and paginates without remote services
+[reader-horizontal] load window target=0 current=0 first=0 last=2 retain=false
+[reader-horizontal] load window complete target=0 retained=0 cacheLayouts=0
+[reader-horizontal] pageChanged index=1 target=0:1 controller=65537.00 generation=0 window=0..2 items=10
+[reader-horizontal] defer page state until idle target=0:1
+[reader-horizontal] window maintenance requested controller=65537.00 generation=0 pending=backward=false contraction=false forward=false
+[reader-horizontal] defer window maintenance until idle controller=65537.00 generation=0
+::endgroup::
+
+🎉 1 test passed.
+===== test/public_reader_aloud_controller_test.dart =====
+
+✅ foreground controls keep highlight, progress, navigation, and sleep
+
+🎉 1 test passed.
+===== test/public_reader_ui_boundary_test.dart =====
+
+✅ local reader chrome exposes only local reading actions
+
+🎉 1 test passed.
+===== test/public_system_tts_contract_test.dart =====
+
+::group::✅ uses the system plugin for voices, parameters, and speech
+TTS 初始化成功，语言: zh-CN
+::endgroup::
+
+🎉 1 test passed.
+===== test/reader_annotation_schema_migration_test.dart =====
+
+✅ v20 migration backfills unique UUIDs and is idempotent
+
+🎉 1 test passed.
+===== test/reader_annotation_test.dart =====
+
+✅ spoken highlight preserves body and nested EPUB typography
+✅ selection snapshots preserve quote context and canonical offsets
+✅ page selection offsets map through generated indentation
+✅ page selections skip source indentation hidden by zero indent
+✅ highlight spans add decoration without replacing EPUB typography
+✅ spoken sentence highlight merges with a persistent note
+
+🎉 6 tests passed.
+===== test/reader_annotations_navigation_test.dart =====
+
+✅ navigation sheet lists and deletes reader annotations
+
+🎉 1 test passed.
+===== test/reader_font_profile_test.dart =====
+
+✅ EPUB book font and system font have distinct pagination contracts
+✅ Android platform default uses generic sans-serif
+✅ Apple platform default resolves PingFang by Chinese script
+✅ Windows platform default resolves Microsoft YaHei chain
+✅ explicit catalog font remains platform independent
+✅ web system selection remains browser managed
+
+🎉 6 tests passed.
+===== test/reader_justified_indent_test.dart =====
+
+✅ indent stays em-sized when justification has spare width
+✅ indent does not change line height or paragraph spacing
+✅ selection after indented paragraphs still maps to canonical text
+✅ paginated and restored pages paint the same indent and source ranges
+
+🎉 4 tests passed.
+===== test/reader_layout_test.dart =====
+
+✅ layout cache fingerprint changes when line height changes
+✅ typography controls and direction participate in the fingerprint
+✅ local and source readers resolve the same persisted page mode
+✅ tablet spread breakpoints require a landscape tablet viewport
+
+🎉 4 tests passed.
+===== test/reader_vertical_paging_test.dart =====
+
+✅ viewport chrome reserves fixed title and status slots
+✅ immersive viewport fills the whole screen regardless of margins
+✅ viewport without a title slot only clears the status bar area
+✅ top bar style maps to one shared viewport chrome policy
+✅ primary visible item follows the viewport center
+✅ chapter item position resolves its centered page
+✅ center refinement keeps the estimate when no cells are mounted
+✅ source offset helpers fall back without rendered text
+✅ mounted paragraph helpers preserve text/source mapping
+✅ mounted page cells refine the viewport-center page
+
+🎉 10 tests passed.
+===== test/streaming_txt_index_test.dart =====
+
+✅ streaming index preserves legacy chapter ids and bounded text
+✅ streams explicit no-BOM utf16le without whole-file decoding
+✅ streams explicit no-BOM utf16be without whole-file decoding
+✅ splits a long line without retaining a line-sized buffer
+✅ section scan rejects malformed UTF-8 after normalization
+
+🎉 5 tests passed.
