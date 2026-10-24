@@ -512,7 +512,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         controller: _scrollController,
         itemCount: _spreads.length,
         // 只预取极少内容，避免一次性触发多张解码。
-        cacheExtent: 0,
+        scrollCacheExtent: 0,
         itemBuilder: (context, index) => Padding(
           padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
           child: _buildSpread(index),
