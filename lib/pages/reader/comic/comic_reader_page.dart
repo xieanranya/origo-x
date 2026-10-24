@@ -511,6 +511,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return ListView.builder(
         controller: _scrollController,
         itemCount: _spreads.length,
+        // 只预取极少内容，避免一次性触发多张解码。
+        cacheExtent: 0,
         itemBuilder: (context, index) => Padding(
           padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
           child: _buildSpread(index),
@@ -641,15 +643,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         // 这里给接近一屏的占位，保证一屏只有一两项在加载。
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           if (wasSynchronouslyLoaded || frame != null) return child;
+          // 与 PV 一致：未解码时只是留白，不显示转圈。
           return SizedBox(
             height: placeholderHeight,
-            child: const Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
+            child: const ColoredBox(color: Colors.black),
           );
         },
         errorBuilder: (_, _, _) => const Icon(
@@ -677,13 +674,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       final placeholderHeight = MediaQuery.of(context).size.height * 0.6;
       return SizedBox(
         height: placeholderHeight,
-        child: const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
+        child: const ColoredBox(color: Colors.black),
       );
     }
 
