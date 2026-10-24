@@ -48,8 +48,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   bool _controlsVisible = true;
   double _viewport = 0;
   double _screenWidth = 0;
+
   /// 平均每屏高度，用于滚动时的 O(1) 页码估算。
   double _averageHeight = 0;
+
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
   double _lastKnownAspect = 0;
@@ -80,17 +82,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _settings = await _settingsStore.load();
     final directory = Directory(widget.book.filePath);
     if (await directory.exists()) {
-      final files = directory
-          .listSync()
-          .whereType<File>()
-          .where((file) {
-            final extension = p
-                .extension(file.path)
-                .replaceFirst('.', '')
-                .toLowerCase();
-            return ComicArchiveService.imageExtensions.contains(extension);
-          })
-          .toList();
+      final files = directory.listSync().whereType<File>().where((file) {
+        final extension = p
+            .extension(file.path)
+            .replaceFirst('.', '')
+            .toLowerCase();
+        return ComicArchiveService.imageExtensions.contains(extension);
+      }).toList();
       files.sort(
         (a, b) => ComicArchiveService.naturalCompare(
           p.basename(a.path),
@@ -244,10 +242,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         if (_pageController.hasClients) _pageController.jumpToPage(index);
       case ComicPageLayout.verticalScroll:
         if (_scrollController.hasClients) {
-          final target = _offsetOf(index).clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          );
+          final target = _offsetOf(
+            index,
+          ).clamp(0.0, _scrollController.position.maxScrollExtent);
           _scrollController.jumpTo(target);
         }
       case ComicPageLayout.horizontalScroll:
@@ -275,9 +272,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       case ComicPageLayout.horizontalScroll:
         final width = MediaQuery.of(context).size.width;
         if (width <= 0) return;
-        index = (position.pixels / width)
-            .round()
-            .clamp(0, _spreads.length - 1);
+        index = (position.pixels / width).round().clamp(0, _spreads.length - 1);
       case ComicPageLayout.page:
         return;
     }
@@ -760,8 +755,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
               builder: (context, index, _) {
                 final logical = _spreads.isEmpty
                     ? 0
-                    : _spreads[index.clamp(0, _spreads.length - 1)]
-                          .logicalPage;
+                    : _spreads[index.clamp(0, _spreads.length - 1)].logicalPage;
                 return Text(
                   '${logical + 1} / ${_images.length}',
                   style: TextStyle(
@@ -814,10 +808,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                       thumbColor: Colors.white,
                     ),
                     child: Slider(
-                      value: index.toDouble().clamp(
-                        0.0,
-                        last > 0 ? last.toDouble() : 1.0,
-                      ).toDouble(),
+                      value: index
+                          .toDouble()
+                          .clamp(0.0, last > 0 ? last.toDouble() : 1.0)
+                          .toDouble(),
                       max: last > 1 ? last.toDouble() : 1.0,
                       onChanged: (value) => _goTo(value.round()),
                     ),

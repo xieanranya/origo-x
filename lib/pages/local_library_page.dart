@@ -372,10 +372,7 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
     final pdfsDir = Directory(p.join(documentsDir.path, 'pdfs'));
     await pdfsDir.create(recursive: true);
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final target = p.join(
-      pdfsDir.path,
-      '${stamp}_${p.basename(source.path)}',
-    );
+    final target = p.join(pdfsDir.path, '${stamp}_${p.basename(source.path)}');
     await source.copy(target);
     final book = Book(
       title: p.basenameWithoutExtension(source.path),
