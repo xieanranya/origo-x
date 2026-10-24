@@ -50,6 +50,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   double _screenWidth = 0;
   /// 平均每屏高度，用于滚动时的 O(1) 页码估算。
   double _averageHeight = 0;
+  /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
+  /// 这样占位高度与真实高度一致，不会留下黑块。
+  double _lastKnownAspect = 0;
   Timer? _saveDebounce;
   Timer? _autoTurnTimer;
 
@@ -96,8 +99,20 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
       _images = files.map((file) => file.path).toList(growable: false);
     }
-    // 宽高比只在需要裁剪/双页切分时才用到，且不阻塞首屏：
-    // 先按兜底比例排版并立即显示，比例在后台补。
+    // 先同步探测首屏这几页的真实比例（约 200ms），保证第一屏高度就是准的，
+    // 不会出现「占位比图片高」的黑块；其余页在滚动到时按需补。
+    if (_images.isNotEmpty) {
+      final start = widget.book.currentPage.clamp(0, _images.length - 1);
+      final from = math.max(0, start - 2);
+      final to = math.min(_images.length, start + 6);
+      final probed = await ComicPageComposer.probeAspects(
+        _images.sublist(from, to),
+      );
+      if (probed.isNotEmpty) {
+        _aspects = <String, double>{..._aspects, ...probed};
+        _lastKnownAspect = probed.values.first;
+      }
+    }
     if (_settings.splitDoublePage && _images.isNotEmpty) {
       unawaited(_probeAllAspects());
     }
@@ -147,7 +162,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final width = _screenWidth > 0
         ? _screenWidth
         : MediaQuery.of(context).size.width;
-    _averageHeight = _spreads.isEmpty ? 0 : width / 0.7;
+    final aspect = _lastKnownAspect > 0.05 ? _lastKnownAspect : 0.7;
+    _averageHeight = _spreads.isEmpty ? 0 : width / aspect;
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -172,6 +188,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final base = image != null && image.height > 0
         ? image.width / image.height
         : (probed != null && probed > 0 ? probed : fallback);
+    if (image != null && image.height > 0) {
+      _lastKnownAspect = base;
+    } else if (probed != null && probed > 0) {
+      _lastKnownAspect = probed;
+    }
     final widthRatio = frame.src.width <= 0 ? 1.0 : frame.src.width;
     final heightRatio = frame.src.height <= 0 ? 1.0 : frame.src.height;
     return base * (widthRatio / heightRatio);
@@ -195,9 +216,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         ? _screenWidth
         : MediaQuery.of(context).size.width;
     final aspect = _spreadAspect(_spreads[index]);
-    // 比例异常时按 0.7 兜底，避免出现 0 高度的空项。
-    final safeAspect = aspect > 0.05 ? aspect : 0.7;
-    return width / safeAspect;
+    // 优先真实比例，其次沿用同书最近一次已知比例，最后才用 0.7。
+    final known = aspect > 0.05
+        ? aspect
+        : (_lastKnownAspect > 0.05 ? _lastKnownAspect : 0.7);
+    return width / known;
   }
 
   double _offsetOf(int index) {
@@ -511,9 +534,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return ListView.builder(
         controller: _scrollController,
         itemCount: _spreads.length,
-        itemBuilder: (context, index) => Padding(
-          padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
-          child: _buildSpread(index),
+        itemBuilder: (context, index) => SizedBox(
+          // 高度按真实比例算准，图片正好铺满，不会露黑块。
+          height: _heightOf(index),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
+            child: _buildSpread(index),
+          ),
         ),
       );
     }
@@ -631,22 +658,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         _settings.cropBorders ||
         _settings.manualCrop > 0;
     if (!needsCropPaint) {
-      final placeholderHeight = MediaQuery.of(context).size.height;
       Widget plain = Image.file(
         File(frame.imagePath),
-        fit: BoxFit.fitWidth,
+        fit: BoxFit.fill,
         width: double.infinity,
+        height: double.infinity,
         cacheWidth: 1600,
-        // 解码完成前高度为 0，会让整屏图片挤在一起并同时发起解码；
-        // 这里给接近一屏的占位，保证一屏只有一两项在加载。
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded || frame != null) return child;
-          // 与 PV 一致：未解码时只是留白，不显示转圈。
-          return SizedBox(
-            height: placeholderHeight,
-            child: const ColoredBox(color: Colors.black),
-          );
-        },
         errorBuilder: (_, _, _) => const Icon(
           Icons.broken_image_outlined,
           color: Colors.white54,
@@ -669,11 +686,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         if (mounted) setState(() {});
       });
       // 占位必须接近整屏高度，否则一屏会堆下几十个占位并同时发起解码。
-      final placeholderHeight = MediaQuery.of(context).size.height * 0.6;
-      return SizedBox(
-        height: placeholderHeight,
-        child: const ColoredBox(color: Colors.black),
-      );
+      return const SizedBox.expand();
     }
 
     final fit = _usesFitWidthList ? BoxFit.fitWidth : _boxFitForMode();
