@@ -619,36 +619,39 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       }
     }
 
-    final image = _imageCache.get(frame.imagePath);
-    if (image == null) {
-      _imageCache.load(frame.imagePath).then((_) {
-        if (mounted) setState(() {});
-      });
-      return const Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-
     final matrix = _settings.hasColorAdjust
         ? ComicColorMatrix.fromSettings(_settings)
         : null;
 
     // 不需要裁剪（无白边裁剪 / 无手工裁切 / 未切分双页）时，直接用 Image 渲染：
-    // 宽度铺满、高度由图片自身比例决定，不需要任何高度估算。
+    // 宽度铺满、高度由图片自身比例决定；加载态由 Image 自己处理，
+    // 不能在这里放小尺寸占位——否则一屏会挤出几十个占位、同时触发几十张解码。
     final needsCropPaint =
         src != ComicPageComposer.fullRect ||
         _settings.cropBorders ||
         _settings.manualCrop > 0;
     if (!needsCropPaint) {
+      final placeholderHeight = MediaQuery.of(context).size.height;
       Widget plain = Image.file(
         File(frame.imagePath),
         fit: BoxFit.fitWidth,
         width: double.infinity,
         cacheWidth: 1600,
+        // 解码完成前高度为 0，会让整屏图片挤在一起并同时发起解码；
+        // 这里给接近一屏的占位，保证一屏只有一两项在加载。
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) return child;
+          return SizedBox(
+            height: placeholderHeight,
+            child: const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
         errorBuilder: (_, _, _) => const Icon(
           Icons.broken_image_outlined,
           color: Colors.white54,
@@ -664,7 +667,26 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return plain;
     }
 
-    // 需要裁剪时走画布：此时必须已有真实尺寸，否则先用零高度占位。
+    // 需要裁剪时走画布：先取解码后的图。
+    final image = _imageCache.get(frame.imagePath);
+    if (image == null) {
+      _imageCache.load(frame.imagePath).then((_) {
+        if (mounted) setState(() {});
+      });
+      // 占位必须接近整屏高度，否则一屏会堆下几十个占位并同时发起解码。
+      final placeholderHeight = MediaQuery.of(context).size.height * 0.6;
+      return SizedBox(
+        height: placeholderHeight,
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
     final fit = _usesFitWidthList ? BoxFit.fitWidth : _boxFitForMode();
     final aspect = _frameAspect(frame);
     final safeAspect = aspect > 0.05 ? aspect : 0.7;
