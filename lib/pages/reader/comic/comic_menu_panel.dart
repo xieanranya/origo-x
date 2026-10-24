@@ -131,11 +131,9 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_bookmarkKey) ?? const <String>[];
-      final list = raw
-          .map(int.tryParse)
-          .whereType<int>()
-          .toList(growable: false)
-        ..sort();
+      final list =
+          raw.map(int.tryParse).whereType<int>().toList(growable: false)
+            ..sort();
       final favorite = prefs.getBool(_favoriteKey) ?? false;
       if (!mounted) return;
       setState(() {
@@ -711,9 +709,8 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
             max: 30,
             divisions: 28,
             valueLabel: '${_settings.autoTurnSeconds} 秒',
-            onChanged: (value) => _update(
-              _settings.copyWith(autoTurnSeconds: value.round()),
-            ),
+            onChanged: (value) =>
+                _update(_settings.copyWith(autoTurnSeconds: value.round())),
           ),
       ],
     );
@@ -964,10 +961,7 @@ class _PvItem extends StatelessWidget {
             if (trailingText != null)
               Text(
                 trailingText!,
-                style: const TextStyle(
-                  color: _Pv.subText,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: _Pv.subText, fontSize: 13),
               ),
           ],
         ),
@@ -1057,11 +1051,7 @@ class _PvPickerItem<T> extends StatelessWidget {
                   style: const TextStyle(color: _Pv.subText, fontSize: 15),
                 ),
                 const SizedBox(width: 6),
-                const Icon(
-                  Icons.arrow_drop_down,
-                  color: _Pv.subText,
-                  size: 24,
-                ),
+                const Icon(Icons.arrow_drop_down, color: _Pv.subText, size: 24),
               ],
             ),
           ],

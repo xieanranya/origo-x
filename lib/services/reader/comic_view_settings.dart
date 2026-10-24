@@ -428,11 +428,7 @@ class ComicFrame {
 /// 屏幕上一次呈现的内容：单页或双页并排。
 @immutable
 class ComicSpread {
-  const ComicSpread({
-    required this.logicalPage,
-    this.left,
-    this.right,
-  });
+  const ComicSpread({required this.logicalPage, this.left, this.right});
 
   final int logicalPage;
   final ComicFrame? left;
@@ -761,9 +757,7 @@ class ComicBorderCropper {
     int threshold = 244,
     int step = 2,
   }) async {
-    final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (byteData == null) return null;
     final bytes = byteData.buffer.asUint8List();
     final width = image.width;
