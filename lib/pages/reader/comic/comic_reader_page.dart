@@ -50,7 +50,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
-  double _viewport = 0;
   double _screenWidth = 0;
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
@@ -461,7 +460,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildContent(double viewport) {
-    _viewport = viewport;
     return Stack(
       children: [
         Positioned.fill(
