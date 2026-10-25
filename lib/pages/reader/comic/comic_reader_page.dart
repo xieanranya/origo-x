@@ -13,6 +13,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../../models/book.dart';
 import '../../../services/books/book_dao.dart';
@@ -34,6 +35,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  final ItemPositionsListener _itemPositionsListener =
+      ItemPositionsListener.create();
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   final Map<int, Rect?> _cropRects = <int, Rect?>{};
   final Set<int> _cropPending = <int>{};
@@ -51,8 +55,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
   double _lastKnownAspect = 0;
-  /// 每屏起始偏移的前缀和（长度 = 屏数 + 1），用于精确定位与二分查找。
-  List<double> _prefixOffsets = const <double>[];
   /// 正在拖动进度条时不响应滚动回调，避免两边互相抢导致来回跳。
   bool _draggingSlider = false;
   Timer? _saveDebounce;
@@ -62,6 +64,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
+    _itemPositionsListener.itemPositions.addListener(_handlePositions);
     _loadAll();
   }
 
@@ -70,6 +73,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _saveDebounce?.cancel();
     _autoTurnTimer?.cancel();
     _scrollController.removeListener(_handleScroll);
+    _itemPositionsListener.itemPositions.removeListener(_handlePositions);
     _scrollController.dispose();
     _pageController.dispose();
     _currentIndex.dispose();
@@ -139,7 +143,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       if (probed.isEmpty) continue;
       setState(() {
         _aspects = <String, double>{..._aspects, ...probed};
-        _rebuildPrefixOffsets();
       });
     }
   }
@@ -161,8 +164,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         ? <ComicSpread>[const ComicSpread(logicalPage: 0), ...composed]
         : composed;
 
-    // 页面编排变化后重算前缀和，滚动与跳转都基于它精确定位。
-    _rebuildPrefixOffsets();
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -222,38 +223,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return width / known;
   }
 
-  /// 重算前缀和：只在页面编排或比例变化时调用，滚动时不再计算。
-  void _rebuildPrefixOffsets() {
-    final count = _spreads.length;
-    final prefix = List<double>.filled(count + 1, 0);
-    for (var i = 0; i < count; i++) {
-      prefix[i + 1] = prefix[i] + _heightOf(i);
-    }
-    _prefixOffsets = prefix;
-  }
-
-  double _offsetOf(int index) {
-    if (_prefixOffsets.isEmpty) return 0;
-    final clamped = index.clamp(0, _prefixOffsets.length - 1);
-    return _prefixOffsets[clamped];
-  }
-
-  /// 二分查找偏移对应的屏序号，O(log n)，结果精确。
-  int _indexAtOffset(double offset) {
-    if (_prefixOffsets.length < 2) return 0;
-    var low = 0;
-    var high = _prefixOffsets.length - 2;
-    while (low < high) {
-      final mid = (low + high + 1) ~/ 2;
-      if (_prefixOffsets[mid] <= offset) {
-        low = mid;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return low;
-  }
-
   // ---------------------------------------------------------------- 翻页
 
   /// 垂直卷动模式下用变高列表（每页按图片比例撑开，宽度铺满）。
@@ -266,12 +235,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       case ComicPageLayout.page:
         if (_pageController.hasClients) _pageController.jumpToPage(index);
       case ComicPageLayout.verticalScroll:
-        if (_scrollController.hasClients) {
-          final target = _offsetOf(index).clamp(
-            0.0,
-            _scrollController.position.maxScrollExtent,
-          );
-          _scrollController.jumpTo(target);
+        // 按页码跳转：列表内部知道每项真实位置，不受「总高度是估算值」影响。
+        if (_itemScrollController.isAttached) {
+          _itemScrollController.jumpTo(index: index);
         }
       case ComicPageLayout.horizontalScroll:
         if (_scrollController.hasClients) {
@@ -285,14 +251,35 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     }
   }
 
+  /// 垂直卷动模式下，由列表直接上报哪一项在视口顶部，精确无误差。
+  void _handlePositions() {
+    if (_settings.layout != ComicPageLayout.verticalScroll) return;
+    if (_draggingSlider) return;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+    ItemPosition? best;
+    for (final position in positions) {
+      if (position.itemTrailingEdge <= 0 || position.itemLeadingEdge >= 1) {
+        continue;
+      }
+      if (best == null || position.itemLeadingEdge < best.itemLeadingEdge) {
+        best = position;
+      }
+    }
+    final index = best?.index;
+    if (index != null && index != _currentIndex.value) {
+      _currentIndex.value = index;
+      _scheduleSave();
+    }
+  }
+
   void _handleScroll() {
-    if (_spreads.isEmpty || !_scrollController.hasClients) return;
+    if (_spreads.isEmpty) return;
+    if (_settings.layout == ComicPageLayout.verticalScroll) return;
+    if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     final int index;
     switch (_settings.layout) {
-      case ComicPageLayout.verticalScroll:
-        if (_draggingSlider) return;
-        index = _indexAtOffset(position.pixels + _viewport * 0.5);
       case ComicPageLayout.horizontalScroll:
         final width = MediaQuery.of(context).size.width;
         if (width <= 0) return;
@@ -300,6 +287,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             .round()
             .clamp(0, _spreads.length - 1);
       case ComicPageLayout.page:
+      case ComicPageLayout.verticalScroll:
         return;
     }
     if (index != _currentIndex.value) {
@@ -435,7 +423,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       if (!mounted || probed.isEmpty) return;
       setState(() {
         _aspects = <String, double>{..._aspects, ...probed};
-        _rebuildPrefixOffsets();
       });
     });
   }
@@ -555,11 +542,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   Widget _buildVertical(double viewport) {
     if (_usesFitWidthList) {
       // 不给项指定高度：由图片按自身比例撑开，杜绝估算比例造成的黑缝。
-      return ListView.builder(
-        controller: _scrollController,
+      // 用 ScrollablePositionedList：支持按页码精确跳转，
+      // 高度仍由 _heightOf 固定，不会因图片加载而变。
+      return ScrollablePositionedList.builder(
+        itemScrollController: _itemScrollController,
+        itemPositionsListener: _itemPositionsListener,
         itemCount: _spreads.length,
         itemBuilder: (context, index) => SizedBox(
-          // 高度按真实比例算准，图片正好铺满，不会露黑块。
           height: _heightOf(index),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
