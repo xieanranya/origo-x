@@ -48,11 +48,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   bool _controlsVisible = true;
   double _viewport = 0;
   double _screenWidth = 0;
-  /// 平均每屏高度，用于滚动时的 O(1) 页码估算。
-  double _averageHeight = 0;
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
   double _lastKnownAspect = 0;
+  /// 每屏起始偏移的前缀和（长度 = 屏数 + 1），用于精确定位与二分查找。
+  List<double> _prefixOffsets = const <double>[];
+  /// 正在拖动进度条时不响应滚动回调，避免两边互相抢导致来回跳。
+  bool _draggingSlider = false;
   Timer? _saveDebounce;
   Timer? _autoTurnTimer;
 
@@ -137,6 +139,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       if (probed.isEmpty) continue;
       setState(() {
         _aspects = <String, double>{..._aspects, ...probed};
+        _rebuildPrefixOffsets();
       });
     }
   }
@@ -158,12 +161,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         ? <ComicSpread>[const ComicSpread(logicalPage: 0), ...composed]
         : composed;
 
-    // 预估平均高度（用兜底比例即可），滚动时据此 O(1) 估算页码。
-    final width = _screenWidth > 0
-        ? _screenWidth
-        : MediaQuery.of(context).size.width;
-    final aspect = _lastKnownAspect > 0.05 ? _lastKnownAspect : 0.7;
-    _averageHeight = _spreads.isEmpty ? 0 : width / aspect;
+    // 页面编排变化后重算前缀和，滚动与跳转都基于它精确定位。
+    _rebuildPrefixOffsets();
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -223,12 +222,36 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     return width / known;
   }
 
-  double _offsetOf(int index) {
-    var sum = 0.0;
-    for (var i = 0; i < index && i < _spreads.length; i++) {
-      sum += _heightOf(i);
+  /// 重算前缀和：只在页面编排或比例变化时调用，滚动时不再计算。
+  void _rebuildPrefixOffsets() {
+    final count = _spreads.length;
+    final prefix = List<double>.filled(count + 1, 0);
+    for (var i = 0; i < count; i++) {
+      prefix[i + 1] = prefix[i] + _heightOf(i);
     }
-    return sum;
+    _prefixOffsets = prefix;
+  }
+
+  double _offsetOf(int index) {
+    if (_prefixOffsets.isEmpty) return 0;
+    final clamped = index.clamp(0, _prefixOffsets.length - 1);
+    return _prefixOffsets[clamped];
+  }
+
+  /// 二分查找偏移对应的屏序号，O(log n)，结果精确。
+  int _indexAtOffset(double offset) {
+    if (_prefixOffsets.length < 2) return 0;
+    var low = 0;
+    var high = _prefixOffsets.length - 2;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (_prefixOffsets[mid] <= offset) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
   }
 
   // ---------------------------------------------------------------- 翻页
@@ -268,10 +291,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final int index;
     switch (_settings.layout) {
       case ComicPageLayout.verticalScroll:
-        // 用平均高度做 O(1) 估算，避免每帧遍历上千页。
-        if (_averageHeight <= 0) return;
-        final ratio = (position.pixels + _viewport * 0.5) / _averageHeight;
-        index = ratio.round().clamp(0, _spreads.length - 1);
+        if (_draggingSlider) return;
+        index = _indexAtOffset(position.pixels + _viewport * 0.5);
       case ComicPageLayout.horizontalScroll:
         final width = MediaQuery.of(context).size.width;
         if (width <= 0) return;
@@ -412,7 +433,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     ComicPageComposer.probeAspects(<String>[path]).then((probed) {
       _aspectPending.remove(path);
       if (!mounted || probed.isEmpty) return;
-      setState(() => _aspects = <String, double>{..._aspects, ...probed});
+      setState(() {
+        _aspects = <String, double>{..._aspects, ...probed};
+        _rebuildPrefixOffsets();
+      });
     });
   }
 
@@ -819,7 +843,18 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                         last > 0 ? last.toDouble() : 1.0,
                       ).toDouble(),
                       max: last > 1 ? last.toDouble() : 1.0,
-                      onChanged: (value) => _goTo(value.round()),
+                      onChangeStart: (_) => _draggingSlider = true,
+                      // 拖动过程中只更新页码显示，不做实际跳转，避免与滚动回调互相抢。
+                      onChanged: (value) {
+                        _currentIndex.value = value.round().clamp(0, last);
+                      },
+                      onChangeEnd: (value) {
+                        _draggingSlider = false;
+                        final target = value.round().clamp(0, last);
+                        _currentIndex.value = target;
+                        _jumpTo(target);
+                        _scheduleSave();
+                      },
                     ),
                   ),
                 ),
