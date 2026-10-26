@@ -669,9 +669,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         _settings.cropBorders ||
         _settings.manualCrop > 0;
     if (!needsCropPaint) {
+      // 垂直卷动容器比例已按真实比例算准，用 fill 正好铺满；
+      // 其余模式遵循「缩放方式」设置。
+      final plainFit = _usesFitWidthList ? BoxFit.fill : _boxFitForMode();
       Widget plain = Image.file(
         File(frame.imagePath),
-        fit: BoxFit.fill,
+        fit: plainFit,
         width: double.infinity,
         height: double.infinity,
         cacheWidth: 1600,
@@ -700,9 +703,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return const SizedBox.expand();
     }
 
-    final fit = _usesFitWidthList ? BoxFit.fitWidth : _boxFitForMode();
-    final aspect = _frameAspect(frame);
-    final safeAspect = aspect > 0.05 ? aspect : 0.7;
+    // 裁剪后画面的比例 = 原图比例 × 裁剪区域宽高比；
+    // 用原图比例会导致容器与内容不一致，出现黑条与拉伸。
+    final imageAspect = image.height > 0 ? image.width / image.height : 0.7;
+    final croppedAspect = imageAspect * (src.width / src.height);
+    final safeAspect = croppedAspect > 0.05 ? croppedAspect : 0.7;
     return AspectRatio(
       aspectRatio: safeAspect,
       child: ClipRect(
@@ -711,7 +716,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             image: image,
             src: src,
             matrix: matrix,
-            fit: fit,
+            fit: BoxFit.fill,
             blur: _settings.blur,
           ),
           isComplex: true,
@@ -769,12 +774,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
             ValueListenableBuilder<int>(
               valueListenable: _currentIndex,
               builder: (context, index, _) {
-                final logical = _spreads.isEmpty
+                // 与底部页码共用同一套数字，避免出现 234/1273 与 235/1274 不一致。
+                final current = _spreads.isEmpty
                     ? 0
-                    : _spreads[index.clamp(0, _spreads.length - 1)]
-                          .logicalPage;
+                    : index.clamp(0, _spreads.length - 1);
                 return Text(
-                  '${logical + 1} / ${_images.length}',
+                  '${current + 1} / ${_spreads.length}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.75),

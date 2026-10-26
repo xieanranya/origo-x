@@ -158,23 +158,22 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    // 面板占屏幕约 88% 并居中，四周露出画面，点面板外即可返回。
-    return Material(
-      color: Colors.transparent,
-      child: SafeArea(
-        child: Align(
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: media.size.width * 0.88,
-            height: media.size.height * 0.88,
-            child: Container(
-              color: _Pv.panel,
-              child: Column(
-                children: [
-                  _buildIconBar(),
-                  Expanded(child: _buildBody()),
-                ],
-              ),
+    // 面板占屏幕约 88% 并居中，四周露出画面。
+    // 注意：外层不能铺满整屏的 Material/Container，否则会吃掉面板外的点击，
+    // 导致点空白处无法关闭。这里只让面板自身占位，其余区域交给 dialog 的遮罩。
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: media.size.width * 0.88,
+          height: media.size.height * 0.88,
+          child: Material(
+            color: _Pv.panel,
+            child: Column(
+              children: [
+                _buildIconBar(),
+                Expanded(child: _buildBody()),
+              ],
             ),
           ),
         ),
