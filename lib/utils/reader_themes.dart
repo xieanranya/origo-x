@@ -430,21 +430,6 @@ class ReaderThemes {
     shadow: Color(0xFF213020),
   );
 
-  static const rose = ReaderThemePalette(
-    id: 'rose',
-    brightness: Brightness.light,
-    background: Color(0xFFF4E8E7),
-    text: Color(0xFF3A292B),
-    secondaryText: Color(0xFF765F62),
-    surface: Color(0xFFFAF1F0),
-    controlBar: Color(0xFFEBDAD9),
-    controlFill: Color(0xFFDEC7C7),
-    accent: Color(0xFF8B5A60),
-    onAccent: Color(0xFFFFFFFF),
-    border: Color(0xFFC9AEAF),
-    shadow: Color(0xFF382326),
-  );
-
   static const night = ReaderThemePalette(
     id: 'night',
     brightness: Brightness.dark,
@@ -510,7 +495,6 @@ class ReaderThemes {
       <ReaderThemePalette>[
         day,
         green,
-        rose,
         parchment,
         navy,
         night,

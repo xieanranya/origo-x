@@ -207,7 +207,6 @@ class _ReaderCustomThemesPageState extends State<ReaderCustomThemesPage> {
       ReaderThemes.systemId => context.l10n.readerThemeFollowSystem,
       'mist' => context.l10n.readerThemeMist,
       'green' => context.l10n.readerThemeGreen,
-      'rose' => context.l10n.readerThemeRose,
       'navy' => context.l10n.readerThemeNavy,
       'night' => context.l10n.readerThemeNight,
       'pureBlack' => context.l10n.readerThemePureBlack,

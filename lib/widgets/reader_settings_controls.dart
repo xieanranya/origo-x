@@ -1408,7 +1408,6 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     'navy' => Icons.nights_stay_rounded,
     'parchment' => Icons.auto_stories_rounded,
     'green' => Icons.eco_rounded,
-    'rose' => Icons.local_florist_rounded,
     _ => Icons.light_mode_rounded,
   };
 }

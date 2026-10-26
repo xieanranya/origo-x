@@ -80,8 +80,6 @@ extension _NativeReaderControls on _NativeReaderPageState {
         return context.l10n.readerThemeFollowSystem;
       case 'green':
         return context.l10n.readerThemeGreen;
-      case 'rose':
-        return context.l10n.readerThemeRose;
       case 'navy':
         return context.l10n.readerThemeNavy;
       case 'night':
