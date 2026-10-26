@@ -46,11 +46,15 @@ class LocalLibraryPage extends StatefulWidget {
     this.booksLoader,
     this.onOpenBook,
     this.onImport,
+    this.comicOnly = false,
   });
 
   final Future<List<Book>> Function()? booksLoader;
   final Future<void> Function(Book)? onOpenBook;
   final Future<void> Function()? onImport;
+
+  /// 只显示漫画类书籍（供底部「漫画」页签使用）。
+  final bool comicOnly;
 
   @override
   State<LocalLibraryPage> createState() => _LocalLibraryPageState();
@@ -550,8 +554,32 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
 
   // ---- 排序 / 筛选 ----
 
+  /// 粗略判断一本是否属于漫画/压缩包类。
+  bool _looksLikeComic(Book book) {
+    final format = book.format.toLowerCase();
+    if (format.contains('comic') ||
+        format.contains('cbz') ||
+        format.contains('cbr') ||
+        format.contains('pdf')) {
+      return true;
+    }
+    final ext = p.extension(book.filePath).toLowerCase();
+    return const <String>{
+      '.cbz',
+      '.cbr',
+      '.cb7',
+      '.pdf',
+      '.zip',
+      '.rar',
+      '.7z',
+    }.contains(ext);
+  }
+
   List<Book> _applySortAndFilter(List<Book> books) {
-    final filtered = books.where((book) {
+    final source = widget.comicOnly
+        ? books.where(_looksLikeComic).toList()
+        : books;
+    final filtered = source.where((book) {
       switch (_filter) {
         case ShelfFilter.all:
           return true;
@@ -652,7 +680,9 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_text('书架', 'Bookshelf')),
+        title: Text(
+          widget.comicOnly ? _text('漫画', 'Comics') : _text('书架', 'Bookshelf'),
+        ),
         actions: [
           PopupMenuButton<ShelfSort>(
             tooltip: _text('排序方式', 'Sort by'),
