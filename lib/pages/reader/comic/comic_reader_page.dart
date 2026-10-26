@@ -180,32 +180,53 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   /// 单帧在屏幕上应占的宽高比（已考虑双页切分区域）。
-  double _frameAspect(ComicFrame frame) {
-    final image = _imageCache.get(frame.imagePath);
-    final probed = _aspects[frame.imagePath];
-    final fallback = frame.imageAspect > 0 ? frame.imageAspect : 0.7;
-    final base = image != null && image.height > 0
-        ? image.width / image.height
-        : (probed != null && probed > 0 ? probed : fallback);
-    if (image != null && image.height > 0) {
-      _lastKnownAspect = base;
-    } else if (probed != null && probed > 0) {
-      _lastKnownAspect = probed;
+  /// 计算一帧最终要显示的区域：双页切分 → 白边侦测 → 手工裁切，三者取交集。
+  /// 高度计算与画面绘制必须用同一份结果，否则容器与内容比例不一致会变形。
+  Rect _effectiveSrc(ComicFrame frame) {
+    var src = frame.src;
+    if (_settings.cropBorders) {
+      final crop = _cropRects[frame.logicalPage];
+      if (crop != null) {
+        final combined = Rect.fromLTRB(
+          math.max(src.left, crop.left),
+          math.max(src.top, crop.top),
+          math.min(src.right, crop.right),
+          math.min(src.bottom, crop.bottom),
+        );
+        if (combined.width > 0.05 && combined.height > 0.05) {
+          src = combined;
+        }
+      }
     }
-    final widthRatio = frame.src.width <= 0 ? 1.0 : frame.src.width;
-    final heightRatio = frame.src.height <= 0 ? 1.0 : frame.src.height;
-    return base * (widthRatio / heightRatio);
+    final manual = _settings.manualCrop;
+    if (manual > 0) {
+      final insetX = src.width * manual;
+      final insetY = src.height * manual;
+      if (src.width - insetX * 2 > 0.05 && src.height - insetY * 2 > 0.05) {
+        src = Rect.fromLTRB(
+          src.left + insetX,
+          src.top + insetY,
+          src.right - insetX,
+          src.bottom - insetY,
+        );
+      }
+    }
+    return src;
   }
 
-  /// 一屏的宽高比：双页并排时两页宽度相加。
-  double _spreadAspect(ComicSpread spread) {
-    final left = spread.left;
-    final right = spread.right;
-    if (left != null && right != null) {
-      return _frameAspect(left) + _frameAspect(right);
+  /// 某帧在屏幕上的真实宽高比（已考虑实际裁剪区域）。
+  double _displayAspect(ComicFrame frame) {
+    final image = _imageCache.get(frame.imagePath);
+    final base = image != null && image.height > 0
+        ? image.width / image.height
+        : (_aspects[frame.imagePath] ??
+              (frame.imageAspect > 0 ? frame.imageAspect : 0.7));
+    final src = _effectiveSrc(frame);
+    final ratio = base * (src.width / src.height);
+    if (image != null && image.height > 0) {
+      _lastKnownAspect = ratio;
     }
-    final only = left ?? right;
-    return only == null ? 1.0 : _frameAspect(only);
+    return ratio > 0.05 ? ratio : 0.7;
   }
 
   /// 某一屏在变高列表里的高度：屏宽 ÷ 该屏真实比例。
@@ -214,8 +235,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final width = _screenWidth > 0
         ? _screenWidth
         : MediaQuery.of(context).size.width;
-    final aspect = _spreadAspect(_spreads[index]);
-    // 优先真实比例，其次沿用同书最近一次已知比例，最后才用 0.7。
+    final frame = _spreads[index].left;
+    final aspect = frame == null ? 1.0 : _displayAspect(frame);
     final known = aspect > 0.05
         ? aspect
         : (_lastKnownAspect > 0.05 ? _lastKnownAspect : 0.7);
@@ -625,59 +646,35 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   Widget _buildFrame(ComicFrame frame) {
-    // 合并「双页切分」的 src 与自动白边侦测结果。
-    var src = frame.src;
-    if (_settings.cropBorders) {
-      final crop = _cropRects[frame.logicalPage];
-      if (crop != null) {
-        final combined = Rect.fromLTRB(
-          math.max(src.left, crop.left),
-          math.max(src.top, crop.top),
-          math.min(src.right, crop.right),
-          math.min(src.bottom, crop.bottom),
-        );
-        if (combined.width > 0.05 && combined.height > 0.05) {
-          src = combined;
-        }
-      }
-    }
-
-    // 手工裁切：四边等比内缩。
-    final manual = _settings.manualCrop;
-    if (manual > 0) {
-      final insetX = src.width * manual;
-      final insetY = src.height * manual;
-      if (src.width - insetX * 2 > 0.05 && src.height - insetY * 2 > 0.05) {
-        src = Rect.fromLTRB(
-          src.left + insetX,
-          src.top + insetY,
-          src.right - insetX,
-          src.bottom - insetY,
-        );
-      }
-    }
+    // 高度计算与绘制共用同一份裁剪结果，避免比例不一致导致变形。
+    final src = _effectiveSrc(frame);
 
     final matrix = _settings.hasColorAdjust
         ? ComicColorMatrix.fromSettings(_settings)
         : null;
 
-    // 不需要裁剪（无白边裁剪 / 无手工裁切 / 未切分双页）时，直接用 Image 渲染：
-    // 宽度铺满、高度由图片自身比例决定；加载态由 Image 自己处理，
-    // 不能在这里放小尺寸占位——否则一屏会挤出几十个占位、同时触发几十张解码。
     final needsCropPaint =
         src != ComicPageComposer.fullRect ||
         _settings.cropBorders ||
         _settings.manualCrop > 0;
+
+    // 解码宽度按实际显示宽度取，避免为长条图分配过大的位图造成滚动卡顿。
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = ((_screenWidth > 0 ? _screenWidth : 400) * dpr * 0.85)
+        .round()
+        .clamp(360, 1200);
+
     if (!needsCropPaint) {
-      // 垂直卷动容器比例已按真实比例算准，用 fill 正好铺满；
-      // 其余模式遵循「缩放方式」设置。
       final plainFit = _usesFitWidthList ? BoxFit.fill : _boxFitForMode();
       Widget plain = Image.file(
         File(frame.imagePath),
         fit: plainFit,
         width: double.infinity,
-        height: double.infinity,
-        cacheWidth: 1600,
+        height: _usesFitWidthList ? double.infinity : null,
+        cacheWidth: cacheWidth,
+        // 低质量插值，滚动时明显更顺；图片本身尺寸已按屏宽解码，观感无损。
+        filterQuality: FilterQuality.low,
+        gaplessPlayback: true,
         errorBuilder: (_, _, _) => const Icon(
           Icons.broken_image_outlined,
           color: Colors.white54,
@@ -690,7 +687,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
           child: plain,
         );
       }
-      return plain;
+      return RepaintBoundary(child: plain);
     }
 
     // 需要裁剪时走画布：先取解码后的图。
@@ -699,28 +696,24 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       _imageCache.load(frame.imagePath).then((_) {
         if (mounted) setState(() {});
       });
-      // 占位必须接近整屏高度，否则一屏会堆下几十个占位并同时发起解码。
       return const SizedBox.expand();
     }
 
-    // 裁剪后画面的比例 = 原图比例 × 裁剪区域宽高比；
-    // 用原图比例会导致容器与内容不一致，出现黑条与拉伸。
-    final imageAspect = image.height > 0 ? image.width / image.height : 0.7;
-    final croppedAspect = imageAspect * (src.width / src.height);
-    final safeAspect = croppedAspect > 0.05 ? croppedAspect : 0.7;
-    return AspectRatio(
-      aspectRatio: safeAspect,
-      child: ClipRect(
-        child: CustomPaint(
-          painter: _ComicFramePainter(
-            image: image,
-            src: src,
-            matrix: matrix,
-            fit: BoxFit.fill,
-            blur: _settings.blur,
+    final croppedAspect = _displayAspect(frame);
+    return RepaintBoundary(
+      child: AspectRatio(
+        aspectRatio: croppedAspect,
+        child: ClipRect(
+          child: CustomPaint(
+            painter: _ComicFramePainter(
+              image: image,
+              src: src,
+              matrix: matrix,
+              fit: BoxFit.fill,
+              blur: _settings.blur,
+            ),
+            willChange: false,
           ),
-          isComplex: true,
-          willChange: false,
         ),
       ),
     );
@@ -996,7 +989,7 @@ class _ComicFramePainter extends CustomPainter {
       fitted.destination,
       Offset.zero & size,
     );
-    final paint = Paint()..filterQuality = FilterQuality.medium;
+    final paint = Paint()..filterQuality = FilterQuality.low;
     final adjustment = matrix;
     if (adjustment != null && adjustment.length == 20) {
       paint.colorFilter = ColorFilter.matrix(adjustment);
