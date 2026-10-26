@@ -1008,20 +1008,31 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   }
 
   Widget _buildGrid(List<Book> books, ColorScheme colorScheme) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final lineColor = (isDark ? Colors.white : Colors.black).withValues(
+      alpha: 0.09,
+    );
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width > 900 ? 6 : (width > 600 ? 4 : 3);
+
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 100),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        mainAxisSpacing: 12,
+        mainAxisSpacing: 16,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.62,
+        childAspectRatio: 0.60,
       ),
       itemCount: books.length,
       itemBuilder: (context, index) {
         final book = books[index];
-        final progress = (book.progress * 100).round();
+        final progress = book.progress.clamp(0.0, 1.0);
+        final percent = (progress * 100).round();
+        final isRead = progress >= 0.999;
+        final isReading = progress > 0 && !isRead;
+
         return InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
           onTap: () => _open(book),
@@ -1034,63 +1045,123 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
                   fit: StackFit.expand,
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.all(Radius.circular(6)),
+                      borderRadius: const BorderRadius.all(Radius.circular(8)),
                       child: _coverImage(book),
+                    ),
+                    // 底部渐隐，让百分比在任何封面上都看得清
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(7, 16, 7, 6),
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(8),
+                          ),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x00000000), Color(0xA6000000)],
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (isReading)
+                              Container(
+                                margin: const EdgeInsets.only(right: 5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  _text('在读', 'Reading'),
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    height: 1.3,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            if (isRead)
+                              Container(
+                                margin: const EdgeInsets.only(right: 5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  _text('读完', 'Done'),
+                                  style: const TextStyle(
+                                    fontSize: 8.5,
+                                    height: 1.3,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            const Spacer(),
+                            Text(
+                              '$percent%',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     if (_isUnread(book))
                       Positioned(
-                        top: 4,
-                        right: 4,
+                        top: 6,
+                        right: 6,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: colorScheme.error,
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            _text('未读', 'New'),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: colorScheme.onError,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (progress > 0)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(6),
-                          ),
-                          child: LinearProgressIndicator(
-                            value: book.progress,
-                            minHeight: 4,
-                            backgroundColor: Colors.black26,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.2),
                           ),
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 7),
               Text(
                 book.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.28,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.05,
+                ),
               ),
-              Text(
-                '$progress%',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(1.5),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 2,
+                  backgroundColor: lineColor,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isRead ? subColor.withValues(alpha: 0.5) : colorScheme.primary,
+                  ),
                 ),
               ),
             ],
@@ -1099,4 +1170,5 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       },
     );
   }
+
 }
