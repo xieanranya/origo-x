@@ -651,7 +651,7 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_text('本地书库', 'Local library')),
+        title: Text(_text('书架', 'Bookshelf')),
         actions: [
           PopupMenuButton<ShelfSort>(
             tooltip: _text('排序方式', 'Sort by'),
@@ -719,12 +719,26 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
             child: TextField(
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                filled: true,
+                fillColor: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.55,
+                ),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 36,
+                ),
                 hintText: _text('搜索书名或作者', 'Search title or author'),
-                border: const OutlineInputBorder(),
+                hintStyle: const TextStyle(fontSize: 13.5),
+                contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
               ),
               onChanged: (value) =>
                   setState(() => _query = value.trim().toLowerCase()),
@@ -806,42 +820,187 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   }
 
   Widget _buildList(List<Book> books) {
-    return ListView.separated(
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final lineColor = (isDark ? Colors.white : Colors.black).withValues(
+      alpha: 0.07,
+    );
+    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final faintColor = isDark ? const Color(0xFF6A6A6A) : const Color(0xFFADADB2);
+
+    Widget statusBadge(String label, Color fg, Color bg) {
+      return Container(
+        margin: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w700,
+            color: fg,
+            height: 1.3,
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.only(bottom: 100),
       itemCount: books.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final book = books[index];
-        final progress = (book.progress * 100).round();
-        return ListTile(
-          leading: Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(4)),
-                child: _coverImage(book, width: 44, height: 60),
-              ),
-              if (_isUnread(book))
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.error,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          title: Text(book.title, maxLines: 1),
-          subtitle: Text(
-            '${book.author} · ${_text('进度', 'Progress')} $progress%',
-          ),
+        final progress = book.progress.clamp(0.0, 1.0);
+        final percent = (progress * 100).round();
+        final isRead = progress >= 0.999;
+        final isReading = progress > 0 && !isRead;
+
+        return InkWell(
           onTap: () => _open(book),
           onLongPress: () => _showBookActions(book),
-          trailing: const Icon(Icons.more_vert),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 11, 8, 11),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: lineColor)),
+            ),
+            child: Row(
+              children: [
+                // 封面
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.all(Radius.circular(4)),
+                      child: _coverImage(book, width: 42, height: 58),
+                    ),
+                    if (_isUnread(book))
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: colorScheme.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                // 标题 + 作者
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              book.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
+                          ),
+                          if (isReading)
+                            statusBadge(
+                              _text('在读', 'Reading'),
+                              colorScheme.primary,
+                              colorScheme.primary.withValues(alpha: 0.12),
+                            ),
+                          if (isRead)
+                            statusBadge(
+                              _text('已读完', 'Finished'),
+                              faintColor,
+                              faintColor.withValues(alpha: 0.14),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              book.author.isEmpty
+                                  ? _text('未知作者', 'Unknown')
+                                  : book.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11.5, color: subColor),
+                            ),
+                          ),
+                          if (book.totalPages > 0) ...[
+                            Container(
+                              width: 1,
+                              height: 9,
+                              margin: const EdgeInsets.symmetric(horizontal: 7),
+                              color: lineColor,
+                            ),
+                            Text(
+                              '${book.currentPage + 1}/${book.totalPages}',
+                              style: TextStyle(fontSize: 11.5, color: subColor),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 百分比 + 细进度条
+                SizedBox(
+                  width: 52,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$percent%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: faintColor,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 2.5,
+                          backgroundColor: lineColor,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 26,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    color: faintColor,
+                    tooltip: _text('更多', 'More'),
+                    onPressed: () => _showBookActions(book),
+                    icon: const Icon(Icons.more_vert),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
