@@ -65,7 +65,8 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
   ShelfSort _sort = ShelfSort.importDate;
   ShelfFilter _filter = ShelfFilter.all;
 
-  static const _prefLayoutKey = 'shelf_layout_mode';
+  // v2：键名变更，使旧的「网格」偏好失效，默认展示新版紧凑列表。
+  static const _prefLayoutKey = 'shelf_layout_mode_v2';
   static const _prefSortKey = 'shelf_sort_mode';
 
   @override
