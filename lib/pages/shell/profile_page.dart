@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/books/book_dao.dart';
+import '../sources/book_source_page.dart';
 import '../../services/core/theme_notifier.dart';
 import '../../services/reading/reading_stats_dao.dart';
 
@@ -204,8 +205,12 @@ class _ProfilePageState extends State<ProfilePage> {
             row(
               icon: Icons.list_alt,
               title: '书源管理',
-              value: '0 个',
-              onTap: () => _toast('当前为本地阅读版，暂无网络书源'),
+              value: '网络书源',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BookSourcePage(),
+                ),
+              ),
             ),
             row(
               icon: Icons.palette_outlined,

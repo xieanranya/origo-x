@@ -39,7 +39,9 @@ CONTENT_CHECKS = {
 }
 DART_CHECKS = {
     'excluded implementation reference': re.compile(
-        r'HttpClient|WebSocket|package:http/|package:dio/|book_sources/|services/(?:account|ai|sync|backup|export)/|reader_core/ai/'
+        # 本地阅读器扩展：允许网络请求与自定义书源（用户自建规则），
+        # 仍禁止账户/AI/云同步/订阅等实现族。
+        r'services/(?:account|ai|sync|backup|export)/|reader_core/ai/'
         r'|MemberAccountController|ReadingCloud|WebDav|ReaderAi|AIChat|AiService'
         r'|StorePurchaseService|OfflineReaderLicense|PremiumMembership|CloudTts|ORSP'
     ),
