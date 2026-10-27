@@ -88,6 +88,43 @@ class BookSource {
     );
   }
 
+  /// 解析 Legado 书源。
+  static BookSource? _fromLegado(Map<String, dynamic> json) {
+    final name = (json['bookSourceName'] ?? '').toString().trim();
+    final baseUrl = (json['bookSourceUrl'] ?? '').toString().trim();
+    if (name.isEmpty || baseUrl.isEmpty) return null;
+
+    Map<String, dynamic> rule(String key) {
+      final value = json[key];
+      return value is Map<String, dynamic> ? value : <String, dynamic>{};
+    }
+
+    String field(Map<String, dynamic> map, String key) =>
+        (map[key] ?? '').toString();
+
+    final search = rule('ruleSearch');
+    final toc = rule('ruleToc');
+    final content = rule('ruleContent');
+
+    return BookSource(
+      id: 'legado_${baseUrl.hashCode}',
+      name: name,
+      baseUrl: baseUrl,
+      charset: (json['bookSourceCharset'] ?? 'utf-8').toString(),
+      enabled: json['enabled'] != false,
+      searchUrl: _legadoUrl(field(json, 'searchUrl')),
+      searchList: _legadoSelector(field(search, 'bookList')),
+      searchName: _legadoSelector(field(search, 'name')),
+      searchAuthor: _legadoSelector(field(search, 'author')),
+      searchCover: _legadoSelector(field(search, 'coverUrl')),
+      searchLink: _legadoSelector(field(search, 'bookUrl')),
+      tocList: _legadoSelector(field(toc, 'chapterList')),
+      tocName: _legadoSelector(field(toc, 'chapterName')),
+      tocLink: _legadoSelector(field(toc, 'chapterUrl')),
+      contentSelector: _legadoSelector(field(content, 'content')),
+    );
+  }
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
     'name': name,
@@ -107,6 +144,11 @@ class BookSource {
   };
 
   static BookSource? fromJson(Map<String, dynamic> json) {
+    // 兼容 Legado（阅读）书源格式：字段名不同，规则是嵌套对象。
+    if (json.containsKey('bookSourceUrl') ||
+        json.containsKey('bookSourceName')) {
+      return _fromLegado(json);
+    }
     String str(String key) => (json[key] ?? '').toString();
     final baseUrl = str('baseUrl').trim();
     final name = str('name').trim();
@@ -131,6 +173,28 @@ class BookSource {
       contentSelector: str('contentSelector'),
     );
   }
+}
+
+/// Legado 选择器转 CSS：class.x → .x，tag.x → x，id.x → #x。
+String _legadoSelector(String raw) {
+  final s = raw.trim();
+  if (s.startsWith('class.')) return '.${s.substring(6)}';
+  if (s.startsWith('tag.')) return s.substring(4);
+  if (s.startsWith('id.')) return '#${s.substring(3)}';
+  return s;
+}
+
+/// Legado 地址占位符 {{key}} {{page}} 转成本项目的 {key} {page}。
+String _legadoUrl(String raw) {
+  var s = raw.trim();
+  // Legado 支持 "url,{...}" 形式的分页选项，这里只取前半段地址
+  final comma = s.indexOf(',{');
+  if (comma > 0) s = s.substring(0, comma);
+  return s
+      .replaceAll('{{key}}', '{key}')
+      .replaceAll('{{page}}', '{page}')
+      .replaceAll('{{', '{')
+      .replaceAll('}}', '}');
 }
 
 /// 搜索结果条目。

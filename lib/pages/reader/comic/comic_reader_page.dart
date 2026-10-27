@@ -243,7 +243,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final known = aspect > 0.05
         ? aspect
         : (_lastKnownAspect > 0.05 ? _lastKnownAspect : 0.7);
-    return width / known;
+    final raw = width / known;
+    // 高度是小数时，相邻两项的像素边界取整会漏出 1px 背景（表现为一条黑线），
+    // 这里按物理像素向上取整，保证两页严丝合缝。
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    return (raw * dpr).ceilToDouble() / dpr;
   }
 
   // ---------------------------------------------------------------- 翻页
