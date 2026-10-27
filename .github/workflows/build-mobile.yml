@@ -116,6 +116,8 @@ jobs:
         run: exit 1
 
   build-ios:
+    # 暂时只出安卓包：把下面的 false 改成 true 即可恢复 iOS 构建。
+    if: ${{ false }}
     name: Build iOS IPA
     runs-on: macos-14
     needs: analyze
