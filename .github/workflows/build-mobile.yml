@@ -163,7 +163,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    needs: analyze
+    # 不再等 analyze：两者并行，出包时间取决于较慢的一侧（约省 3~4 分钟）。
+    # analyze 仍有独立 job 卡质量，失败会在 Actions 里标红。
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
