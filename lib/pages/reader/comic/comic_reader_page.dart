@@ -118,6 +118,17 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         _lastKnownAspect = probed.values.first;
       }
     }
+    // 开了白边裁剪时，先把首屏这几页的白边检测完再排版：
+    // 否则会先按「未裁剪」比例算高度，检测完成后比例变化导致画面跳动。
+    if (_settings.cropBorders && _images.isNotEmpty) {
+      final start = widget.book.currentPage.clamp(0, _images.length - 1);
+      final from = math.max(0, start - 2);
+      final to = math.min(_images.length, start + 6);
+      for (var i = from; i < to; i++) {
+        final rect = await _detectCrop(_images[i]);
+        _cropRects[i] = rect;
+      }
+    }
     if (_settings.splitDoublePage && _images.isNotEmpty) {
       unawaited(_probeAllAspects());
     }
@@ -574,12 +585,11 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         itemScrollController: _itemScrollController,
         itemPositionsListener: _itemPositionsListener,
         itemCount: _spreads.length,
+        // 不设任何内外边距：页面之间必须严丝合缝，
+        // 任何 padding 都会露出黑色背景形成一条黑线。
         itemBuilder: (context, index) => SizedBox(
           height: _heightOf(index),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: _settings.pageGap / 2),
-            child: _buildSpread(index),
-          ),
+          child: _buildSpread(index),
         ),
       );
     }
