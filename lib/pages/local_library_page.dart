@@ -57,10 +57,10 @@ class LocalLibraryPage extends StatefulWidget {
   final bool comicOnly;
 
   @override
-  State<LocalLibraryPage> createState() => _LocalLibraryPageState();
+  State<LocalLibraryPage> createState() => LocalLibraryPageState();
 }
 
-class _LocalLibraryPageState extends State<LocalLibraryPage> {
+class LocalLibraryPageState extends State<LocalLibraryPage> {
   final _booksDao = BookDao();
   late Future<List<Book>> _books;
   bool _importing = false;
@@ -134,6 +134,9 @@ class _LocalLibraryPageState extends State<LocalLibraryPage> {
       ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
+
+  /// 供外部（如「我的」页）直接触发导入。
+  Future<void> startImport() => _import();
 
   Future<void> _import() async {
     if (_importing) return;

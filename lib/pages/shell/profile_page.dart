@@ -9,7 +9,10 @@ import '../../services/core/theme_notifier.dart';
 import '../../services/reading/reading_stats_dao.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.onImport});
+
+  /// 由外层容器提供：切到书架并打开文件选择器。
+  final Future<void> Function()? onImport;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -199,8 +202,15 @@ class _ProfilePageState extends State<ProfilePage> {
             row(
               icon: Icons.file_download_outlined,
               title: '导入本地文件',
-              value: 'txt · epub',
-              onTap: () => _toast('请到「书架」页右下角导入'),
+              value: 'txt · epub · 漫画',
+              onTap: () async {
+                final handler = widget.onImport;
+                if (handler == null) {
+                  _toast('请到「书架」页右下角导入');
+                  return;
+                }
+                await handler();
+              },
             ),
             row(
               icon: Icons.list_alt,

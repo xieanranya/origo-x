@@ -14,16 +14,28 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  final GlobalKey<LocalLibraryPageState> _shelfKey =
+      GlobalKey<LocalLibraryPageState>();
+
+  /// 从「我的」页触发导入：先切到书架，再打开文件选择器，
+  /// 导入完成后停留在书架，直接看到结果。
+  Future<void> _importFromProfile() async {
+    if (_index != 0) {
+      setState(() => _index = 0);
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+    }
+    await _shelfKey.currentState?.startImport();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [
-          LocalLibraryPage(),
-          LocalLibraryPage(comicOnly: true),
-          ProfilePage(),
+        children: [
+          LocalLibraryPage(key: _shelfKey),
+          const LocalLibraryPage(comicOnly: true),
+          ProfilePage(onImport: _importFromProfile),
         ],
       ),
       bottomNavigationBar: NavigationBar(
