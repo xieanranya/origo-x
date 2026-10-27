@@ -444,7 +444,10 @@ class ComicPageComposer {
   ComicPageComposer._();
 
   /// 宽高比大于该值的图视为「双页扫描」。
-  static const double doublePageAspect = 1.15;
+  /// 判定「双页跨页图」的宽高比阈值。
+  /// 原来取 1.15 太小：普通横图（1.3~1.8）也会被切成左右两半，
+  /// 导致画面被腰斩、位置对不上。真正的跨页图通常在 2:1 以上。
+  static const double doublePageAspect = 1.7;
 
   static const Rect fullRect = Rect.fromLTRB(0, 0, 1, 1);
 

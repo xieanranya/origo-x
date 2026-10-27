@@ -184,7 +184,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   /// 高度计算与画面绘制必须用同一份结果，否则容器与内容比例不一致会变形。
   Rect _effectiveSrc(ComicFrame frame) {
     var src = frame.src;
-    if (_settings.cropBorders) {
+    // 白边检测是基于「整页」做的；若是双页切分出来的半页，
+    // 套用整页的裁剪框会把画面裁偏（表现为上下/左右错位），必须跳过。
+    final isDerivedFrame = frame.src != ComicPageComposer.fullRect;
+    if (_settings.cropBorders && !isDerivedFrame) {
       final crop = _cropRects[frame.logicalPage];
       if (crop != null) {
         final combined = Rect.fromLTRB(
