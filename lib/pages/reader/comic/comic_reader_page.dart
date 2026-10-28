@@ -39,8 +39,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
-  final Map<int, Rect?> _cropRects = <int, Rect?>{};
-  final Set<int> _cropPending = <int>{};
+  /// 全书统一的白边裁剪框（相对矩形）。逐页各裁各的会让相邻两页的缩放
+  /// 基准不同，接缝处画面左右/上下错位，看起来「对不上」；统一成一个框
+  /// 后所有页按同一基准缩放，接缝才严丝合缝。null = 不裁剪。
+  Rect? _sharedCrop;
   final Set<String> _aspectPending = <String>{};
   final _ComicImageCache _imageCache = _ComicImageCache();
 
@@ -121,13 +123,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     // 开了白边裁剪时，先把首屏这几页的白边检测完再排版：
     // 否则会先按「未裁剪」比例算高度，检测完成后比例变化导致画面跳动。
     if (_settings.cropBorders && _images.isNotEmpty) {
-      final start = widget.book.currentPage.clamp(0, _images.length - 1);
-      final from = math.max(0, start - 2);
-      final to = math.min(_images.length, start + 6);
-      for (var i = from; i < to; i++) {
-        final rect = await _detectCrop(_images[i]);
-        _cropRects[i] = rect;
-      }
+      _sharedCrop = await _detectSharedCrop();
     }
     if (_settings.splitDoublePage && _images.isNotEmpty) {
       unawaited(_probeAllAspects());
@@ -198,18 +194,16 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     // 白边检测是基于「整页」做的；若是双页切分出来的半页，
     // 套用整页的裁剪框会把画面裁偏（表现为上下/左右错位），必须跳过。
     final isDerivedFrame = frame.src != ComicPageComposer.fullRect;
-    if (_settings.cropBorders && !isDerivedFrame) {
-      final crop = _cropRects[frame.logicalPage];
-      if (crop != null) {
-        final combined = Rect.fromLTRB(
-          math.max(src.left, crop.left),
-          math.max(src.top, crop.top),
-          math.min(src.right, crop.right),
-          math.min(src.bottom, crop.bottom),
-        );
-        if (combined.width > 0.05 && combined.height > 0.05) {
-          src = combined;
-        }
+    final crop = _sharedCrop;
+    if (_settings.cropBorders && !isDerivedFrame && crop != null) {
+      final combined = Rect.fromLTRB(
+        math.max(src.left, crop.left),
+        math.max(src.top, crop.top),
+        math.min(src.right, crop.right),
+        math.min(src.bottom, crop.bottom),
+      );
+      if (combined.width > 0.05 && combined.height > 0.05) {
+        src = combined;
       }
     }
     final manual = _settings.manualCrop;
@@ -409,6 +403,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         next.fitMode != _settings.fitMode ||
         next.blankFirstPage != _settings.blankFirstPage;
     final anchorLogical = _currentLogicalPage;
+    final cropWasOn = _settings.cropBorders;
     final autoTurnChanged =
         next.autoTurn != _settings.autoTurn ||
         next.autoTurnSeconds != _settings.autoTurnSeconds;
@@ -431,24 +426,46 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
     }
     if (autoTurnChanged) _restartAutoTurn();
-    if (next.cropBorders) _ensureCropDetected(_currentLogicalPage);
+    if (next.cropBorders && !cropWasOn) {
+      // 刚打开白边裁剪：先算统一裁剪框，再让列表按新比例重排，避免逐页跳动。
+      final crop = await _detectSharedCrop();
+      if (!mounted) return;
+      setState(() {
+        _sharedCrop = crop;
+        _rebuildSpreads();
+      });
+    }
   }
 
   // ---------------------------------------------------------------- 白边
 
-  void _ensureCropDetected(int logicalPage) {
-    if (!_settings.cropBorders) return;
-    if (logicalPage < 0 || logicalPage >= _images.length) return;
-    if (_cropRects.containsKey(logicalPage) ||
-        _cropPending.contains(logicalPage)) {
-      return;
+  /// 检测首屏若干页，合成「全书统一裁剪框」。
+  ///
+  /// 逐页各裁各的会出两个问题：相邻两页缩放基准不同 → 接缝处画面错位（对不上）；
+  /// 检测又是异步的 → 首帧按未裁剪比例排版，检测完比例一变就跳动。
+  /// 取各页裁剪框的并集（= 各页边距的最小值），保证不裁掉任何一页的内容，
+  /// 同时所有页共用同一个框，接缝才能对上。
+  Future<Rect?> _detectSharedCrop() async {
+    if (_images.isEmpty) return null;
+    final start = widget.book.currentPage.clamp(0, _images.length - 1);
+    final from = math.max(0, start - 2);
+    final to = math.min(_images.length, start + 6);
+    var left = 1.0;
+    var top = 1.0;
+    var right = 0.0;
+    var bottom = 0.0;
+    for (var i = from; i < to; i++) {
+      final rect = await _detectCrop(_images[i]) ?? ComicPageComposer.fullRect;
+      left = math.min(left, rect.left);
+      top = math.min(top, rect.top);
+      right = math.max(right, rect.right);
+      bottom = math.max(bottom, rect.bottom);
     }
-    _cropPending.add(logicalPage);
-    _detectCrop(_images[logicalPage]).then((rect) {
-      _cropPending.remove(logicalPage);
-      if (!mounted) return;
-      setState(() => _cropRects[logicalPage] = rect);
-    });
+    // 基本等于整页 = 这批页面没有白边，不裁剪（裁了反而会把画面切掉一圈）。
+    if (left < 0.004 && top < 0.004 && right > 0.996 && bottom > 0.996) {
+      return null;
+    }
+    return Rect.fromLTRB(left, top, right, bottom);
   }
 
   /// 按需探测单页真实宽高比，供变高列表计算正确高度。
@@ -578,19 +595,29 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
 
   Widget _buildVertical(double viewport) {
     if (_usesFitWidthList) {
-      // 不给项指定高度：由图片按自身比例撑开，杜绝估算比例造成的黑缝。
-      // 用 ScrollablePositionedList：支持按页码精确跳转，
-      // 高度仍由 _heightOf 固定，不会因图片加载而变。
+      // 用 ScrollablePositionedList：支持按页码精确跳转；每项高度由 _heightOf 固定，
+      // 不会因图片加载而变。不设任何内外边距：页面之间必须严丝合缝，
+      // 任何 padding 都会露出黑色背景形成一条黑线。
       return ScrollablePositionedList.builder(
         itemScrollController: _itemScrollController,
         itemPositionsListener: _itemPositionsListener,
         itemCount: _spreads.length,
-        // 不设任何内外边距：页面之间必须严丝合缝，
-        // 任何 padding 都会露出黑色背景形成一条黑线。
-        itemBuilder: (context, index) => SizedBox(
-          height: _heightOf(index),
-          child: _buildSpread(index),
-        ),
+        itemBuilder: (context, index) {
+          final height = _heightOf(index);
+          // 上下各多画 1 物理像素（见 _seamBleed）：
+          // 滚动位置通常是小数，接缝必然落在半像素上，两页的边缘都会和黑底混一层，
+          // 屏幕上就是一条 1~2px 黑线。让每页多画 1px 越界，后画的下页直接盖住
+          // 上页的混合边缘，接缝就彻底看不出来了。
+          final bleed = _seamBleed;
+          return SizedBox(
+            height: height,
+            child: OverflowBox(
+              minHeight: height + bleed * 2,
+              maxHeight: height + bleed * 2,
+              child: _buildSpread(index),
+            ),
+          );
+        },
       );
     }
     return ListView.builder(
@@ -600,6 +627,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       itemBuilder: (context, index) => _buildSpread(index),
     );
   }
+
+  /// 垂直卷动时每页上下多画 1 物理像素，用来盖掉小数滚动位置下的接缝。
+  double get _seamBleed => 1 / MediaQuery.devicePixelRatioOf(context);
 
   Widget _buildHorizontal() {
     return PageView.builder(
@@ -646,13 +676,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       // 空白封里。
       return const ColoredBox(color: Colors.black);
     }
-    _ensureCropDetected(spread.logicalPage);
     _ensureAspect(spread.left?.imagePath);
     _ensureAspect(spread.right?.imagePath);
     final left = spread.left;
     final right = spread.right;
-    if (left != null) _ensureCropDetected(left.logicalPage);
-    if (right != null) _ensureCropDetected(right.logicalPage);
 
     // 单页直接返回，让外层列表依据图片高度自适应。
     if (left != null && right == null) return _buildFrame(left);
@@ -671,9 +698,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         : null;
 
     final needsCropPaint =
-        src != ComicPageComposer.fullRect ||
-        _settings.cropBorders ||
-        _settings.manualCrop > 0;
+        src != ComicPageComposer.fullRect || _settings.manualCrop > 0;
 
     // 解码宽度按实际显示宽度取，避免为长条图分配过大的位图造成滚动卡顿。
     final dpr = MediaQuery.devicePixelRatioOf(context);
@@ -716,22 +741,20 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return const SizedBox.expand();
     }
 
-    final croppedAspect = _displayAspect(frame);
+    // 不用 AspectRatio：它按自身比例算出的高度会比列表项矮最多 1 物理像素，
+    // 底部就漏出黑底 —— 这才是「页间黑线」一直修不掉的真凶。
+    // CustomPaint 直接铺满列表项给定的尺寸，画面按同一尺寸绘制，一个像素都不差。
     return RepaintBoundary(
-      child: AspectRatio(
-        aspectRatio: croppedAspect,
-        child: ClipRect(
-          child: CustomPaint(
-            painter: _ComicFramePainter(
-              image: image,
-              src: src,
-              matrix: matrix,
-              fit: BoxFit.fill,
-              blur: _settings.blur,
-            ),
-            willChange: false,
-          ),
+      child: CustomPaint(
+        painter: _ComicFramePainter(
+          image: image,
+          src: src,
+          matrix: matrix,
+          fit: BoxFit.fill,
+          blur: _settings.blur,
         ),
+        size: Size.infinite,
+        willChange: false,
       ),
     );
   }
@@ -1006,7 +1029,11 @@ class _ComicFramePainter extends CustomPainter {
       fitted.destination,
       Offset.zero & size,
     );
-    final paint = Paint()..filterQuality = FilterQuality.low;
+    final paint = Paint()
+      ..filterQuality = FilterQuality.low
+      // 关掉抗锯齿：画面正好铺满列表项，边缘本该是硬的。开了抗锯齿后，
+      // 落在半像素上的边缘会和黑底按比例混合，两页交界就显出一条灰黑线。
+      ..isAntiAlias = false;
     final adjustment = matrix;
     if (adjustment != null && adjustment.length == 20) {
       paint.colorFilter = ColorFilter.matrix(adjustment);
