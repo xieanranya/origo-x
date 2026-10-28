@@ -75,6 +75,8 @@ class ComicMenuPanel extends StatefulWidget {
     required this.onDeleteBook,
     required this.bookTitle,
     required this.bookPath,
+    this.initialTab = ComicMenuTab.menu,
+    this.onTabChanged,
   });
 
   final ComicViewSettings settings;
@@ -90,13 +92,21 @@ class ComicMenuPanel extends StatefulWidget {
   final String bookTitle;
   final String bookPath;
 
+  /// 打开时停在哪个页签。关掉面板再打开要回到上次那一页，不回主菜单。
+  final ComicMenuTab initialTab;
+
+  /// 页签变化回调：宿主记住它，下次打开时回传 [initialTab]。
+  final ValueChanged<ComicMenuTab>? onTabChanged;
+
   @override
   State<ComicMenuPanel> createState() => _ComicMenuPanelState();
 }
 
 class _ComicMenuPanelState extends State<ComicMenuPanel> {
-  ComicMenuTab _tab = ComicMenuTab.menu;
-  final PageController _tabController = PageController();
+  late ComicMenuTab _tab = widget.initialTab;
+  late final PageController _tabController = PageController(
+    initialPage: widget.initialTab.index,
+  );
   late ComicViewSettings _settings = widget.settings;
   bool _colorMasterOn = true;
   List<int> _bookmarks = const <int>[];
@@ -118,6 +128,7 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
   void _switchTab(ComicMenuTab tab) {
     if (tab == _tab) return;
     setState(() => _tab = tab);
+    widget.onTabChanged?.call(tab);
     if (_tabController.hasClients) {
       _tabController.animateToPage(
         tab.index,
@@ -224,7 +235,9 @@ class _ComicMenuPanelState extends State<ComicMenuPanel> {
       controller: _tabController,
       onPageChanged: (index) {
         if (index >= 0 && index < ComicMenuTab.values.length) {
-          setState(() => _tab = ComicMenuTab.values[index]);
+          final tab = ComicMenuTab.values[index];
+          setState(() => _tab = tab);
+          widget.onTabChanged?.call(tab);
         }
       },
       children: [

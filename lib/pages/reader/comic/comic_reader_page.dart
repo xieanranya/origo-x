@@ -52,6 +52,8 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
+  /// 上次停留的菜单页签：关掉面板再打开要回到这一页，而不是回主菜单。
+  ComicMenuTab _lastMenuTab = ComicMenuTab.menu;
   double _screenWidth = 0;
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
@@ -977,6 +979,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
         imagePaths: _images,
         bookTitle: widget.book.title,
         bookPath: widget.book.filePath,
+        // 关掉面板再打开，回到上次那一页（用户要求：别每次都回主菜单）。
+        initialTab: _lastMenuTab,
+        onTabChanged: (tab) => _lastMenuTab = tab,
         onSettingsChanged: (next) => unawaited(_applySettings(next)),
         onJumpToPage: (page) {
           if (_images.isEmpty) return;
