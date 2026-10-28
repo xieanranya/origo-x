@@ -84,10 +84,7 @@ class ComicArchiveService {
       for (final entry in archive.files) {
         final base = p.basename(entry.path);
         if (base.isEmpty || base.startsWith('.')) continue;
-        final extension = p
-            .extension(base)
-            .replaceFirst('.', '')
-            .toLowerCase();
+        final extension = p.extension(base).replaceFirst('.', '').toLowerCase();
         if (!imageExtensions.contains(extension)) continue;
         final bytes = await archive.readBytes(entry, maxSize: _maxEntryBytes);
         final output = File(p.join(targetDir.path, base));

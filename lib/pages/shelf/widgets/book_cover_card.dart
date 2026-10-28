@@ -125,10 +125,7 @@ class BookCoverCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0xFFE53935),
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 1.2,
-                            ),
+                            border: Border.all(color: Colors.white, width: 1.2),
                           ),
                         ),
                       ),

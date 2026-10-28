@@ -233,9 +233,7 @@ class ShelfPageState extends State<ShelfPage> {
             .toLowerCase();
         if (ComicArchiveService.isComicArchive(extension)) {
           try {
-            final book = await ComicArchiveService.importComic(
-              File(localPath),
-            );
+            final book = await ComicArchiveService.importComic(File(localPath));
             if (book == null) {
               skipped++;
             } else {
@@ -342,7 +340,11 @@ class ShelfPageState extends State<ShelfPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.info_outline),
-              title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                book.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
                 '${book.format.toUpperCase()} · 进度 ${(book.progress * 100).round()}%',
               ),
@@ -379,7 +381,11 @@ class ShelfPageState extends State<ShelfPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.public),
-              title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                book.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text('来源：${book.sourceName}'),
             ),
             const Divider(height: 1),
@@ -726,9 +732,9 @@ class ShelfPageState extends State<ShelfPage> {
         Theme.of(context).brightness != Brightness.dark,
       );
     } else if (action == 'sources') {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => const BookSourcePage()),
-      );
+      await Navigator.of(
+        context,
+      ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
       await _load();
     }
   }

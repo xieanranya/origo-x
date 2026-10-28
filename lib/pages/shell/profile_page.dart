@@ -40,9 +40,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _openSources() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const BookSourcePage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
     await _load();
   }
 

@@ -9,10 +9,7 @@ import '../../services/core/theme_notifier.dart';
 /// 外壳统一配色。用 [AppPalette.of] 在 build 里取，深色/浅色自动切换。
 @immutable
 class AppPalette {
-  const AppPalette._({
-    required this.dark,
-    required this.accent,
-  });
+  const AppPalette._({required this.dark, required this.accent});
 
   final bool dark;
 
@@ -35,8 +32,7 @@ class AppPalette {
   Color get bg => dark ? const Color(0xFF000000) : const Color(0xFFF5F6F8);
 
   /// 卡片 / 列表容器底色。
-  Color get surface =>
-      dark ? const Color(0xFF141416) : const Color(0xFFFFFFFF);
+  Color get surface => dark ? const Color(0xFF141416) : const Color(0xFFFFFFFF);
 
   /// 次级填充：搜索框、chip、进度条槽。
   Color get fill => dark ? const Color(0xFF1E1E22) : const Color(0xFFEFF1F4);

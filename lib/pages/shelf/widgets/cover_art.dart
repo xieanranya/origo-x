@@ -57,10 +57,7 @@ class CoverArt extends StatelessWidget {
     } else {
       inner = _art();
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: inner,
-    );
+    return ClipRRect(borderRadius: BorderRadius.circular(radius), child: inner);
   }
 
   Widget _art() {
