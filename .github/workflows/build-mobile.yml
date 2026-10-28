@@ -117,7 +117,8 @@ jobs:
 
   build-ios:
     # 双端一起发：Android 与 iOS 同版本上同一个 Release。
-    # macOS runner 偶尔排队超时被 cancelled，这里允许失败，不拖累安卓出包。
+    # macOS runner 排队超时会被 cancelled（表现为整个 run 失败），故允许失败，
+    # 不拖累安卓出包；被取消时错峰重跑即可补上 IPA。
     name: Build iOS IPA
     runs-on: macos-14
     needs: analyze
