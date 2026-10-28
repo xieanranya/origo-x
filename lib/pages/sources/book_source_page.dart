@@ -253,9 +253,16 @@ class _BookSourcePageState extends State<BookSourcePage> {
 
 /// 搜索页：按已启用书源搜索。
 class SourceSearchPage extends StatefulWidget {
-  const SourceSearchPage({super.key, required this.sources});
+  const SourceSearchPage({
+    super.key,
+    required this.sources,
+    this.embedded = false,
+  });
 
   final List<BookSource> sources;
+
+  /// 嵌进别的页面时（例如「发现」页）为 true，隐藏自带 AppBar。
+  final bool embedded;
 
   @override
   State<SourceSearchPage> createState() => _SourceSearchPageState();
@@ -315,7 +322,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('搜索')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('搜索')),
       body: Column(
         children: [
           Padding(
