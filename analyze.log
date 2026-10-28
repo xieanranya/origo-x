@@ -1,0 +1,19 @@
+Analyzing origo-x...                                            
+
+  error • Target of URI doesn't exist: '../shell/app_palette.dart'. Try creating the file referenced by the URI, or try using a URI for a file that does exist • lib/pages/shelf/widgets/book_cover_card.dart:5:8 • uri_does_not_exist
+  error • Undefined name 'AppPalette'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:41:21 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:51:43 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:59:53 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:63:53 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:70:31 • undefined_identifier
+  error • Undefined name 'AppText'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:143:22 • undefined_identifier
+  error • Undefined name 'AppText'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/book_cover_card.dart:154:22 • undefined_identifier
+  error • Target of URI doesn't exist: '../shell/app_palette.dart'. Try creating the file referenced by the URI, or try using a URI for a file that does exist • lib/pages/shelf/widgets/continue_reading_card.dart:5:8 • uri_does_not_exist
+  error • Undefined name 'AppPalette'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/continue_reading_card.dart:31:21 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/continue_reading_card.dart:38:45 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/continue_reading_card.dart:41:47 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/continue_reading_card.dart:44:51 • undefined_identifier
+  error • Undefined name 'AppRadius'. Try correcting the name to one that is defined, or defining the name • lib/pages/shelf/widgets/continue_reading_card.dart:107:59 • undefined_identifier
+   info • Use the null-aware marker '?' rather than a null check via an 'if'. Try using '?' • lib/pages/shell/profile_page.dart:223:15 • use_null_aware_elements
+
+15 issues found. (ran in 15.2s)
