@@ -259,12 +259,15 @@ extension _NativeReaderRendering on _NativeReaderPageState {
       pageCount: 0,
     ),
     horizontalPadding: math.max(14, _horizontalMargin),
-    showTopInformation: _topBarStyle == ReaderTopBarStyle.reader,
+    showTopInformation:
+        _topBarStyle == ReaderTopBarStyle.reader && _headerFooter.showsHeader,
     showFloatingStatus: _showLeafFloatingStatus,
     floatingStatusHorizontalPadding: _floatingStatusHorizontalPadding,
     topInformationLayout: topInformationLayout,
     showPageNumber: false,
     status: _leafStatusController.value,
+    headerFooter: _headerFooter,
+    bookTitle: widget.book.title,
     child: const SizedBox.expand(),
   );
 
@@ -311,6 +314,12 @@ extension _NativeReaderRendering on _NativeReaderPageState {
       pageCount: pageCount,
       layoutFingerprint: layoutFingerprint,
     );
+    final pagePercent = pageCount <= 0
+        ? 0
+        : (((pageIndex + 1) / pageCount) * 100).round();
+    final remainingPages = (pageCount - pageIndex - 1)
+        .clamp(0, pageCount)
+        .toInt();
     return ReaderPaperPageLeaf(
       palette: _readerTheme,
       safeArea: _readerSafeArea,
@@ -324,11 +333,18 @@ extension _NativeReaderRendering on _NativeReaderPageState {
       pageNumberPlacement: pageNumberPlacement,
       horizontalPadding: math.max(14, _horizontalMargin),
       pageNumberHorizontalPadding: math.max(24, _horizontalMargin),
-      showTopInformation: _topBarStyle == ReaderTopBarStyle.reader,
+      showTopInformation:
+          _topBarStyle == ReaderTopBarStyle.reader &&
+          _headerFooter.showsHeader,
       showFloatingStatus: _showLeafFloatingStatus,
       floatingStatusHorizontalPadding: _floatingStatusHorizontalPadding,
       topInformationLayout: topInformationLayout,
+      showPageNumber: _headerFooter.showsFooter,
       status: _leafStatusController.value,
+      headerFooter: _headerFooter,
+      bookTitle: widget.book.title,
+      percentLabel: '$pagePercent%',
+      remainingLabel: context.l10n.readerPagesRemaining(remainingPages),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           _horizontalMargin,

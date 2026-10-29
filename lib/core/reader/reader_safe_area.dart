@@ -26,11 +26,23 @@ class ReaderSafeAreaMetrics {
   final double bottomMargin;
   final double topChromeReserve;
 
+  /// 页脚是否显示；关闭后正文可以压回页码原本占的高度。
+  final bool showFooter;
+
+  /// 页眉高度（只用于绘制页眉；正文预留由 [topChromeReserve] 决定）。
+  final double headerHeight;
+
+  /// 页脚高度；比默认的页码高度更高时正文会相应上移。
+  final double footerHeight;
+
   const ReaderSafeAreaMetrics({
     required this.viewPadding,
     required this.topMargin,
     required this.bottomMargin,
     this.topChromeReserve = 0,
+    this.showFooter = true,
+    this.headerHeight = readerTopBarHeight,
+    this.footerHeight = pageNumberReserve,
   });
 
   double get contentTop => viewPadding.top + topChromeReserve + topMargin;
@@ -48,7 +60,7 @@ class ReaderSafeAreaMetrics {
 
   double get contentBottom => math.max(
     viewPadding.bottom + bottomMargin,
-    pageNumberBottom + pageNumberReserve + pageNumberGap,
+    showFooter ? pageNumberBottom + footerHeight + pageNumberGap : 0.0,
   );
 
   String get paginationSignature =>

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../core/reader/reader_header_footer_settings.dart';
 import '../core/reader/reader_leaf_status.dart';
 import '../core/reader/reader_safe_area.dart';
 import '../utils/reader_themes.dart';
 
 enum ReaderTopInformationLayout { full, spreadLeft, spreadRight }
 
+/// 页眉：章节 / 书名 / 时间 / 电量，内容与对齐方式由
+/// [ReaderHeaderFooterSettings] 决定；默认值仍是旧版「时间左 / 章节中 / 电量右」。
 class ReaderTopInformationBar extends StatelessWidget {
   const ReaderTopInformationBar({
     super.key,
@@ -13,6 +16,9 @@ class ReaderTopInformationBar extends StatelessWidget {
     required this.title,
     required this.status,
     this.layout = ReaderTopInformationLayout.full,
+    this.bookTitle = '',
+    this.settings = const ReaderHeaderFooterSettings(),
+    this.height = ReaderSafeAreaMetrics.readerTopBarHeight,
   });
 
   final ReaderThemePalette palette;
@@ -20,12 +26,31 @@ class ReaderTopInformationBar extends StatelessWidget {
   final ReaderLeafStatusData? status;
   final ReaderTopInformationLayout layout;
 
+  /// 书名；只有 `settings.headerShowBook` 为 true 时才显示。
+  final String bookTitle;
+
+  final ReaderHeaderFooterSettings settings;
+
+  /// 页眉高度（由安全区按字号算出）。
+  final double height;
+
   @override
   Widget build(BuildContext context) {
+    final showChapter = settings.headerShowChapter;
+    final showBook = settings.headerShowBook;
+    final showClock = settings.headerShowClock;
+    final showBattery = settings.headerShowBattery;
+
+    final titleParts = <String>[
+      if (showChapter) title,
+      if (showBook) bookTitle,
+    ].where((value) => value.isNotEmpty).toList(growable: false);
+    final displayTitle = titleParts.join(' · ');
+
     final style =
         Theme.of(context).textTheme.labelSmall?.copyWith(
           height: 1,
-          fontSize: 10,
+          fontSize: settings.headerFontSize,
           fontWeight: FontWeight.w500,
           letterSpacing: 0.08,
           color: palette.secondaryText.withValues(alpha: 0.66),
@@ -33,18 +58,23 @@ class ReaderTopInformationBar extends StatelessWidget {
         ) ??
         TextStyle(
           height: 1,
-          fontSize: 10,
+          fontSize: settings.headerFontSize,
           fontWeight: FontWeight.w500,
           color: palette.secondaryText.withValues(alpha: 0.66),
           fontFeatures: const [FontFeature.tabularFigures()],
         );
-    final time = status == null
-        ? ''
-        : MaterialLocalizations.of(context).formatTimeOfDay(
+    final titleStyle = style.copyWith(
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.14,
+    );
+
+    final time = showClock && status != null
+        ? MaterialLocalizations.of(context).formatTimeOfDay(
             TimeOfDay.fromDateTime(status!.time),
             alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-          );
-    final battery = status?.battery;
+          )
+        : '';
+    final battery = showBattery ? status?.battery : null;
 
     final batteryIndicator = battery == null
         ? null
@@ -55,71 +85,66 @@ class ReaderTopInformationBar extends StatelessWidget {
                 battery.charging
                     ? Icons.battery_charging_full_rounded
                     : _batteryIcon(battery.level),
-                size: 11,
+                size: settings.headerFontSize + 1,
                 color: style.color,
               ),
               const SizedBox(width: 1),
               Text('${battery.level}%', style: style),
             ],
           );
-    final semanticsParts = switch (layout) {
-      ReaderTopInformationLayout.full => [
-        if (time.isNotEmpty) time,
-        title,
-        if (battery != null) '${battery.level}%',
-      ],
-      ReaderTopInformationLayout.spreadLeft => [title],
-      ReaderTopInformationLayout.spreadRight => [
-        if (time.isNotEmpty) time,
-        if (battery != null) '${battery.level}%',
-      ],
-    };
+
+    final semanticsParts = <String>[
+      if (time.isNotEmpty) time,
+      if (displayTitle.isNotEmpty) displayTitle,
+      if (battery != null) '${battery.level}%',
+    ];
 
     return Semantics(
       container: true,
-      label: semanticsParts.where((part) => part.isNotEmpty).join(', '),
+      label: semanticsParts.join(', '),
       child: SizedBox(
-        height: 16,
+        height: height,
         child: switch (layout) {
-          ReaderTopInformationLayout.full => Stack(
-            fit: StackFit.expand,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(time, style: style),
-              ),
-              Center(
-                child: FractionallySizedBox(
-                  widthFactor: 0.54,
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.14,
-                    ),
+          ReaderTopInformationLayout.full =>
+            settings.headerPosition == ReaderChromePosition.split
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(time, style: style),
+                      ),
+                      Center(
+                        child: FractionallySizedBox(
+                          widthFactor: 0.54,
+                          child: Text(
+                            displayTitle,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle,
+                          ),
+                        ),
+                      ),
+                      if (batteryIndicator != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: batteryIndicator,
+                        ),
+                    ],
+                  )
+                : _buildJoined(
+                    settings.headerPosition,
+                    semanticsParts,
+                    titleStyle,
                   ),
-                ),
-              ),
-              if (batteryIndicator != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: batteryIndicator,
-                ),
-            ],
-          ),
           ReaderTopInformationLayout.spreadLeft => Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              title,
+              displayTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: style.copyWith(
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.14,
-              ),
+              style: titleStyle,
             ),
           ),
           ReaderTopInformationLayout.spreadRight => Align(
@@ -138,12 +163,52 @@ class ReaderTopInformationBar extends StatelessWidget {
       ),
     );
   }
+
+  /// 非「分散」布局：所有已选内容用 ` · ` 连成一行，整体左 / 中 / 右对齐。
+  Widget _buildJoined(
+    ReaderChromePosition position,
+    List<String> parts,
+    TextStyle style,
+  ) {
+    final text = parts.join(' · ');
+    return switch (position) {
+      ReaderChromePosition.left => Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+      ReaderChromePosition.right => Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          text,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+      _ => Align(
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+    };
+  }
 }
 
 /// 灵动信息栏：占用被隐藏的系统状态栏区域，左侧时间、右侧电量，不挤占
 /// 正文排版空间。
 ///
-/// 翻页模式下由 [ReaderPaperPageLeaf] 画进纸页，随翻页动画一起移动；
+/// 翻页模式下由 `ReaderPaperPageLeaf` 画进纸页，随翻页动画一起移动；
 /// 纵向滚动模式没有翻页概念，由 [ReaderFloatingStatusOverlay] 固定在
 /// 视口顶部。双页 spread 时左页只显示时间、右页只显示电量。
 class ReaderFloatingStatusBar extends StatelessWidget {

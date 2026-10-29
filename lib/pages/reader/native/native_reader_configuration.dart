@@ -48,6 +48,7 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
         _topBarStyle = topBarStyle;
         _chapterTitlePageEnabled = settings.chapterTitlePageEnabled;
         _chapterProgressStyle = settings.chapterProgressStyle;
+        _headerFooter = settings.headerFooter;
         _readerSettingsLoaded = true;
       });
       _autoPageTurnController.setVertical(
@@ -124,6 +125,7 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
     tabletTwoPageEnabled: _tabletTwoPageEnabled,
     chapterTitlePageEnabled: _chapterTitlePageEnabled,
     chapterProgressStyle: _chapterProgressStyle,
+    headerFooter: _headerFooter,
   );
 
   ReaderFontProfile get _readerFontProfile => resolveReaderFontProfile(
@@ -244,18 +246,32 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
     );
   }
 
-  ReaderSafeAreaMetrics get _readerSafeArea => ReaderSafeAreaMetrics(
-    viewPadding: MediaQuery.viewPaddingOf(context),
-    topMargin: _topMargin,
-    bottomMargin: _bottomMargin,
-    topChromeReserve: _topChromeReserveFor(_topBarStyle),
-  );
+  ReaderSafeAreaMetrics get _readerSafeArea {
+    final vertical = _pageMode == NativePageMode.verticalScroll;
+    return ReaderSafeAreaMetrics(
+      viewPadding: MediaQuery.viewPaddingOf(context),
+      topMargin: _topMargin,
+      bottomMargin: _bottomMargin,
+      topChromeReserve: _topChromeReserveFor(_topBarStyle),
+      showFooter: vertical || _headerFooter.showsFooter,
+      headerHeight: vertical
+          ? ReaderSafeAreaMetrics.readerTopBarHeight
+          : _headerFooter.headerHeight,
+      footerHeight: vertical
+          ? ReaderSafeAreaMetrics.pageNumberReserve
+          : _headerFooter.footerHeight,
+    );
+  }
 
   /// 阅读信息栏占一条固定信息条；灵动信息栏借用状态栏区域，仅在设备
   /// 没有状态栏 inset（隐藏后归零）时补足最小高度，避免正文顶进时间与
   /// 电量。其余样式顶部只避开状态栏本身。
   double _topChromeReserveFor(ReaderTopBarStyle style) => switch (style) {
-    ReaderTopBarStyle.reader => ReaderSafeAreaMetrics.readerTopBarReserve,
+    ReaderTopBarStyle.reader => _pageMode == NativePageMode.verticalScroll
+        ? ReaderSafeAreaMetrics.readerTopBarReserve
+        : _headerFooter.showsHeader
+        ? _headerFooter.headerHeight + ReaderSafeAreaMetrics.readerTopBarGap
+        : 0,
     ReaderTopBarStyle.floating => math.max(
       0,
       ReaderSafeAreaMetrics.floatingStatusMinHeight -
@@ -280,6 +296,7 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
     _chapterProgressStyle == ReaderChapterProgressStyle.hidden
         ? 0
         : _visibleChapterCount,
+    _headerFooter.cacheSignature,
   );
 
   double get _effectiveTopMargin => _readerSafeArea.contentTop;
@@ -369,7 +386,8 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
       '${_bottomMargin.toStringAsFixed(1)}:${_pageMode.name}:'
       '$_firstLineIndent:$_paragraphSpacing:'
       '${_readerFontProfile.cacheSignature}:'
-      '$_chapterTitlePageEnabled';
+      '$_chapterTitlePageEnabled:'
+      '${_pageMode == NativePageMode.verticalScroll ? '' : _headerFooter.layoutSignature}';
 
   Future<void> _setChapterProgressStyle(
     ReaderChapterProgressStyle style,
@@ -377,6 +395,22 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
     if (_chapterProgressStyle == style) return;
     _setReaderState(() => _chapterProgressStyle = style);
     await _readerSettingsStore.saveChapterProgressStyle(style);
+  }
+
+  /// 页眉 / 页脚：只有高度或显隐变化才重新分页；内容 / 位置只重绘。
+  Future<void> _setHeaderFooter(ReaderHeaderFooterSettings value) async {
+    if (_headerFooter == value) return;
+    final layoutChanged =
+        _pageMode != NativePageMode.verticalScroll &&
+        _headerFooter.layoutSignature != value.layoutSignature;
+    _setReaderState(() {
+      _headerFooter = value;
+      if (layoutChanged) {
+        _pageIndex = 0;
+        _requestPositionRestore();
+      }
+    });
+    await _readerSettingsStore.save(_readerSettings);
   }
 
   Future<void> _setTopBarStyle(ReaderTopBarStyle style) async {

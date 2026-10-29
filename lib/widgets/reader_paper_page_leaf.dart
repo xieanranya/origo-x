@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/reader/reader_header_footer_settings.dart';
 import '../core/reader/reader_leaf_status.dart';
 import '../core/reader/reader_safe_area.dart';
 import '../utils/reader_themes.dart';
@@ -84,6 +85,10 @@ class ReaderPaperPageLeaf extends StatelessWidget {
     this.topInformationLayout = ReaderTopInformationLayout.full,
     this.showPageNumber = true,
     this.status,
+    this.headerFooter = const ReaderHeaderFooterSettings(),
+    this.bookTitle = '',
+    this.percentLabel = '',
+    this.remainingLabel = '',
   });
 
   final ReaderThemePalette palette;
@@ -101,23 +106,37 @@ class ReaderPaperPageLeaf extends StatelessWidget {
   final bool showPageNumber;
   final ReaderLeafStatusData? status;
 
+  /// 页眉 / 页脚配置：控制显示哪些内容、对齐与字号。
+  final ReaderHeaderFooterSettings headerFooter;
+
+  /// 书名（页眉勾选「书名」时显示）。
+  final String bookTitle;
+
+  /// 页脚百分比文案，例如 `50%`。
+  final String percentLabel;
+
+  /// 页脚剩余页数文案。
+  final String remainingLabel;
+
   @override
   Widget build(BuildContext context) {
     final footerStyle =
         Theme.of(context).textTheme.labelSmall?.copyWith(
           color: palette.secondaryText.withValues(alpha: 0.66),
-          fontSize: 10,
+          fontSize: headerFooter.footerFontSize,
           height: 1,
           letterSpacing: 0.08,
           fontFeatures: const [FontFeature.tabularFigures()],
         ) ??
         TextStyle(
           color: palette.secondaryText.withValues(alpha: 0.66),
-          fontSize: 10,
+          fontSize: headerFooter.footerFontSize,
           height: 1,
           fontFeatures: const [FontFeature.tabularFigures()],
         );
-    final semanticsLabel = showPageNumber
+    final showHeader = showTopInformation && headerFooter.showsHeader;
+    final showFooter = showPageNumber && headerFooter.showsFooter;
+    final semanticsLabel = showFooter
         ? metadata.chapterTitle.isEmpty
               ? metadata.pageLabel
               : '${metadata.chapterTitle}, ${metadata.pageLabel}'
@@ -132,20 +151,23 @@ class ReaderPaperPageLeaf extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             child,
-            if (showTopInformation)
+            if (showHeader)
               Positioned(
                 left: horizontalPadding,
                 right: horizontalPadding,
                 top: safeArea.readerTopBarTop,
-                height: ReaderSafeAreaMetrics.readerTopBarHeight,
+                height: safeArea.headerHeight,
                 child: ReaderTopInformationBar(
                   key: ValueKey(
                     'reader-leaf-top-information:${metadata.pageIdentity}',
                   ),
                   palette: palette,
                   title: metadata.chapterTitle,
+                  bookTitle: bookTitle,
                   status: status,
                   layout: topInformationLayout,
+                  settings: headerFooter,
+                  height: safeArea.headerHeight,
                 ),
               ),
             if (showFloatingStatus)
@@ -163,16 +185,21 @@ class ReaderPaperPageLeaf extends StatelessWidget {
                   layout: topInformationLayout,
                 ),
               ),
-            if (showPageNumber)
+            if (showFooter)
               Positioned(
                 left: pageNumberHorizontalPadding,
                 right: pageNumberHorizontalPadding,
                 bottom: safeArea.pageNumberBottom,
-                height: ReaderSafeAreaMetrics.pageNumberReserve,
-                child: ReaderProgressFooter(
+                height: safeArea.footerHeight,
+                child: ReaderPageFooter(
                   key: ValueKey('reader-leaf-footer:${metadata.pageIdentity}'),
                   chapterLabel: chapterProgressLabel,
                   pageLabel: metadata.pageLabel,
+                  percentLabel: percentLabel,
+                  remainingLabel: remainingLabel,
+                  settings: headerFooter,
+                  forceSplit:
+                      topInformationLayout != ReaderTopInformationLayout.full,
                   pageKey: ValueKey(
                     'reader-leaf-page:${metadata.pageIdentity}',
                   ),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../core/reader/reader_layout.dart';
 import '../core/reader/reader_auto_page_turn_controller.dart';
 import '../core/reader/reader_margin_settings.dart';
+import '../core/reader/reader_header_footer_settings.dart';
 import '../core/reader/reader_settings.dart';
 import '../core/reader/reader_custom_theme.dart';
 import '../core/reader/reader_system_ui.dart';
@@ -37,6 +38,62 @@ class ReaderFontChoice {
   final int? variableWeightMax;
 }
 
+/// 页眉页脚 Tab 的文案集合（避免二十多个字符串参数）。
+@immutable
+class ReaderHeaderFooterLabels {
+  const ReaderHeaderFooterLabels({
+    required this.tabLabel,
+    required this.headerSectionTitle,
+    required this.headerEnabledTitle,
+    required this.headerEnabledHint,
+    required this.headerChapterContent,
+    required this.headerBookContent,
+    required this.headerTimeContent,
+    required this.headerBatteryContent,
+    required this.headerPositionLabel,
+    required this.headerFontSizeLabel,
+    required this.headerTopBarHint,
+    required this.footerSectionTitle,
+    required this.footerEnabledTitle,
+    required this.footerEnabledHint,
+    required this.footerChapterContent,
+    required this.footerPageContent,
+    required this.footerPercentContent,
+    required this.footerRemainingContent,
+    required this.footerPositionLabel,
+    required this.footerFontSizeLabel,
+    required this.positionSplit,
+    required this.positionLeft,
+    required this.positionCenter,
+    required this.positionRight,
+  });
+
+  final String tabLabel;
+  final String headerSectionTitle;
+  final String headerEnabledTitle;
+  final String headerEnabledHint;
+  final String headerChapterContent;
+  final String headerBookContent;
+  final String headerTimeContent;
+  final String headerBatteryContent;
+  final String headerPositionLabel;
+  final String headerFontSizeLabel;
+  final String headerTopBarHint;
+  final String footerSectionTitle;
+  final String footerEnabledTitle;
+  final String footerEnabledHint;
+  final String footerChapterContent;
+  final String footerPageContent;
+  final String footerPercentContent;
+  final String footerRemainingContent;
+  final String footerPositionLabel;
+  final String footerFontSizeLabel;
+  final String positionSplit;
+  final String positionLeft;
+  final String positionCenter;
+  final String positionRight;
+}
+
 class ReaderSettingsSheet extends StatefulWidget {
   const ReaderSettingsSheet({
     super.key,
@@ -44,7 +101,6 @@ class ReaderSettingsSheet extends StatefulWidget {
     required this.tabThemeLabel,
     required this.tabTextLabel,
     required this.tabLayoutLabel,
-    required this.tabPagingLabel,
     required this.advancedTypographyTitle,
     required this.themeDescription,
     required this.pageModeTitle,
@@ -135,13 +191,17 @@ class ReaderSettingsSheet extends StatefulWidget {
     required this.onTapPageAnimationChanged,
     required this.onTabletTwoPageChanged,
     required this.onChapterTitlePageChanged,
+    required this.headerFooter,
+    required this.headerFooterLabels,
+    required this.onHeaderFooterChanged,
+    this.headerFooterHint,
+    this.doneLabel,
   });
 
   final String title;
   final String tabThemeLabel;
   final String tabTextLabel;
   final String tabLayoutLabel;
-  final String tabPagingLabel;
   final String advancedTypographyTitle;
   final String themeDescription;
   final String pageModeTitle;
@@ -236,6 +296,20 @@ class ReaderSettingsSheet extends StatefulWidget {
   final ValueChanged<bool> onTabletTwoPageChanged;
   final ValueChanged<bool> onChapterTitlePageChanged;
 
+  /// 页眉 / 页脚当前配置（打开面板时的快照）。
+  final ReaderHeaderFooterSettings headerFooter;
+
+  /// 页眉页脚 Tab 的文案。
+  final ReaderHeaderFooterLabels headerFooterLabels;
+
+  final ValueChanged<ReaderHeaderFooterSettings> onHeaderFooterChanged;
+
+  /// 顶部提示（上下滚动模式、双页模式等）。
+  final String? headerFooterHint;
+
+  /// 头部右侧「完成」按钮文案；为空时不显示。
+  final String? doneLabel;
+
   @override
   State<ReaderSettingsSheet> createState() => _ReaderSettingsSheetState();
 }
@@ -268,6 +342,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
   late bool _tapPageAnimationEnabled = widget.tapPageAnimationEnabled;
   late bool _tabletTwoPageEnabled = widget.tabletTwoPageEnabled;
   late bool _chapterTitlePageEnabled = widget.chapterTitlePageEnabled;
+  late ReaderHeaderFooterSettings _headerFooter = widget.headerFooter;
   _ReaderSettingsTab _tab = _ReaderSettingsTab.theme;
   int _tabDirection = 1;
 
@@ -280,11 +355,34 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
     final theme = palette.toThemeData(typography: Theme.of(context).textTheme);
     return ReaderSettingsSheetFrame(
       palette: palette,
+      maxHeightFactor: 0.68,
+      header: Row(
+        children: [
+          Expanded(
+            child: Text(widget.title, style: theme.textTheme.titleLarge),
+          ),
+          if (widget.doneLabel != null)
+            TextButton(
+              key: const ValueKey('reader-settings-done'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(widget.doneLabel!),
+            ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.title, style: theme.textTheme.titleLarge),
+          ReaderThemeStrip(
+            selectedThemeId: _themeId,
+            labelFor: widget.themeLabelFor,
+            onSelected: (themeId) {
+              setState(() => _themeId = themeId);
+              widget.onThemeChanged(themeId);
+            },
+            onCustomThemeTap: widget.onCustomThemeTap,
+            onSystemThemeLongPress: () => unawaited(_showSystemThemeEditor()),
+          ),
           const SizedBox(height: 12),
           SegmentedButton<_ReaderSettingsTab>(
             key: const ValueKey('reader-settings-tab-bar'),
@@ -304,8 +402,8 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
                 label: Text(widget.tabLayoutLabel),
               ),
               ButtonSegment(
-                value: _ReaderSettingsTab.paging,
-                label: Text(widget.tabPagingLabel),
+                value: _ReaderSettingsTab.chrome,
+                label: Text(widget.headerFooterLabels.tabLabel),
               ),
             ],
             selected: {_tab},
@@ -332,9 +430,13 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
         : const Duration(milliseconds: 300);
     final children = switch (_tab) {
       _ReaderSettingsTab.theme => _themeTabChildren(theme),
-      _ReaderSettingsTab.text => _textTabChildren(context),
+      _ReaderSettingsTab.text => [
+        ..._textTabChildren(context),
+        const Divider(height: 28),
+        ..._pagingTabChildren(),
+      ],
       _ReaderSettingsTab.layout => _layoutTabChildren(),
-      _ReaderSettingsTab.paging => _pagingTabChildren(),
+      _ReaderSettingsTab.chrome => _chromeTabChildren(theme),
     };
     return AnimatedSize(
       key: const ValueKey('reader-settings-tab-animated-size'),
@@ -685,17 +787,6 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
 
   List<Widget> _themeTabChildren(ThemeData theme) => [
     Text(widget.themeDescription, style: theme.textTheme.bodySmall),
-    const SizedBox(height: 12),
-    ReaderThemeStrip(
-      selectedThemeId: _themeId,
-      labelFor: widget.themeLabelFor,
-      onSelected: (themeId) {
-        setState(() => _themeId = themeId);
-        widget.onThemeChanged(themeId);
-      },
-      onCustomThemeTap: widget.onCustomThemeTap,
-      onSystemThemeLongPress: () => unawaited(_showSystemThemeEditor()),
-    ),
     const Divider(height: 28),
     ListTile(
       key: const ValueKey('reader-top-bar-style-tile'),
@@ -796,6 +887,294 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
     ),
   ];
 
+  /// 第 4 个 Tab：页眉 / 页脚内容、位置与字号。
+  List<Widget> _chromeTabChildren(ThemeData theme) {
+    final labels = widget.headerFooterLabels;
+    final headerEnabled = _headerFooter.headerEnabled;
+    final footerEnabled = _headerFooter.footerEnabled;
+
+    Widget section({
+      required String title,
+      required String switchTitle,
+      required bool enabled,
+      required ValueChanged<bool> onEnabled,
+      required List<Widget> children,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.28,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(title, style: theme.textTheme.titleMedium),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(switchTitle),
+              value: enabled,
+              onChanged: onEnabled,
+            ),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 160),
+              opacity: enabled ? 1 : 0.45,
+              child: IgnorePointer(
+                ignoring: !enabled,
+                child: Column(children: children),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget positionControl({
+      required Key key,
+      required ReaderChromePosition selected,
+      required ValueChanged<ReaderChromePosition> onChanged,
+    }) {
+      return SegmentedButton<ReaderChromePosition>(
+        key: key,
+        showSelectedIcon: false,
+        expandedInsets: EdgeInsets.zero,
+        segments: [
+          ButtonSegment(
+            value: ReaderChromePosition.split,
+            label: Text(labels.positionSplit),
+          ),
+          ButtonSegment(
+            value: ReaderChromePosition.left,
+            label: Text(labels.positionLeft),
+          ),
+          ButtonSegment(
+            value: ReaderChromePosition.center,
+            label: Text(labels.positionCenter),
+          ),
+          ButtonSegment(
+            value: ReaderChromePosition.right,
+            label: Text(labels.positionRight),
+          ),
+        ],
+        selected: {selected},
+        onSelectionChanged: (selection) => onChanged(selection.first),
+      );
+    }
+
+    return [
+      if (widget.headerFooterHint != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.headerFooterHint!,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+      if (widget.showTabletTwoPageToggle)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.menu_book_rounded, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.l10n.readerHeaderFooterSpreadHint,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+      section(
+        title: labels.headerSectionTitle,
+        switchTitle: labels.headerEnabledTitle,
+        enabled: headerEnabled,
+        onEnabled: (value) =>
+            _updateHeaderFooter(_headerFooter.copyWith(headerEnabled: value)),
+        children: [
+          Text(labels.headerEnabledHint, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                key: const ValueKey('reader-header-chapter-chip'),
+                label: Text(labels.headerChapterContent),
+                selected: _headerFooter.headerShowChapter,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(headerShowChapter: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-header-book-chip'),
+                label: Text(labels.headerBookContent),
+                selected: _headerFooter.headerShowBook,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(headerShowBook: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-header-time-chip'),
+                label: Text(labels.headerTimeContent),
+                selected: _headerFooter.headerShowClock,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(headerShowClock: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-header-battery-chip'),
+                label: Text(labels.headerBatteryContent),
+                selected: _headerFooter.headerShowBattery,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(headerShowBattery: value),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              labels.headerPositionLabel,
+              style: theme.textTheme.titleSmall,
+            ),
+          ),
+          const SizedBox(height: 6),
+          positionControl(
+            key: const ValueKey('reader-header-position-control'),
+            selected: _headerFooter.headerPosition,
+            onChanged: (value) => _updateHeaderFooter(
+              _headerFooter.copyWith(headerPosition: value),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ReaderSettingSlider(
+            key: const ValueKey('reader-header-font-size-slider'),
+            label: labels.headerFontSizeLabel,
+            value: _headerFooter.headerFontSize,
+            valueLabel: _headerFooter.headerFontSize.round().toString(),
+            min: ReaderHeaderFooterSettings.minFontSize,
+            max: ReaderHeaderFooterSettings.maxFontSize,
+            divisions: 8,
+            onChanged: (value) => setState(
+              () =>
+                  _headerFooter = _headerFooter.copyWith(headerFontSize: value),
+            ),
+            onChangeEnd: (value) => _updateHeaderFooter(
+              _headerFooter.copyWith(headerFontSize: value),
+            ),
+          ),
+          Text(labels.headerTopBarHint, style: theme.textTheme.bodySmall),
+        ],
+      ),
+      section(
+        title: labels.footerSectionTitle,
+        switchTitle: labels.footerEnabledTitle,
+        enabled: footerEnabled,
+        onEnabled: (value) =>
+            _updateHeaderFooter(_headerFooter.copyWith(footerEnabled: value)),
+        children: [
+          Text(labels.footerEnabledHint, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                key: const ValueKey('reader-footer-chapter-chip'),
+                label: Text(labels.footerChapterContent),
+                selected: _headerFooter.footerShowChapterProgress,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(footerShowChapterProgress: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-footer-page-chip'),
+                label: Text(labels.footerPageContent),
+                selected: _headerFooter.footerShowPage,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(footerShowPage: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-footer-percent-chip'),
+                label: Text(labels.footerPercentContent),
+                selected: _headerFooter.footerShowPercent,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(footerShowPercent: value),
+                ),
+              ),
+              FilterChip(
+                key: const ValueKey('reader-footer-remaining-chip'),
+                label: Text(labels.footerRemainingContent),
+                selected: _headerFooter.footerShowRemaining,
+                onSelected: (value) => _updateHeaderFooter(
+                  _headerFooter.copyWith(footerShowRemaining: value),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              labels.footerPositionLabel,
+              style: theme.textTheme.titleSmall,
+            ),
+          ),
+          const SizedBox(height: 6),
+          positionControl(
+            key: const ValueKey('reader-footer-position-control'),
+            selected: _headerFooter.footerPosition,
+            onChanged: (value) => _updateHeaderFooter(
+              _headerFooter.copyWith(footerPosition: value),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ReaderSettingSlider(
+            key: const ValueKey('reader-footer-font-size-slider'),
+            label: labels.footerFontSizeLabel,
+            value: _headerFooter.footerFontSize,
+            valueLabel: _headerFooter.footerFontSize.round().toString(),
+            min: ReaderHeaderFooterSettings.minFontSize,
+            max: ReaderHeaderFooterSettings.maxFontSize,
+            divisions: 8,
+            onChanged: (value) => setState(
+              () =>
+                  _headerFooter = _headerFooter.copyWith(footerFontSize: value),
+            ),
+            onChangeEnd: (value) => _updateHeaderFooter(
+              _headerFooter.copyWith(footerFontSize: value),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  void _updateHeaderFooter(ReaderHeaderFooterSettings value) {
+    if (!mounted) return;
+    setState(() => _headerFooter = value);
+    widget.onHeaderFooterChanged(value);
+  }
+
   Widget _autoPageTurnTile(
     BuildContext context,
     ReaderAutoPageTurnController? controller,
@@ -833,7 +1212,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
   }
 }
 
-enum _ReaderSettingsTab { theme, text, layout, paging }
+enum _ReaderSettingsTab { theme, text, layout, chrome }
 
 Widget _readerSettingsTabLayout(
   Widget? currentChild,
@@ -1129,11 +1508,19 @@ class ReaderSettingsSheetFrame extends StatelessWidget {
     required this.palette,
     required this.child,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 20),
+    this.header,
+    this.maxHeightFactor = 0.5,
   });
 
   final ReaderThemePalette palette;
   final Widget child;
   final EdgeInsetsGeometry padding;
+
+  /// 固定头部（标题 + 完成按钮），不随内容滚动。
+  final Widget? header;
+
+  /// 面板最大高度占屏幕比例。
+  final double maxHeightFactor;
 
   @override
   Widget build(BuildContext context) {
@@ -1149,7 +1536,8 @@ class ReaderSettingsSheetFrame extends StatelessWidget {
         child: SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.5,
+              maxHeight:
+                  MediaQuery.sizeOf(context).height * maxHeightFactor,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1158,6 +1546,11 @@ class ReaderSettingsSheetFrame extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: ReaderSettingsDragHandle(palette: palette),
                 ),
+                if (header != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+                    child: header,
+                  ),
                 Flexible(
                   child: SingleChildScrollView(padding: padding, child: child),
                 ),

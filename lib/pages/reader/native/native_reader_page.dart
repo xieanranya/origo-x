@@ -25,6 +25,7 @@ import 'package:xxread/core/reader/reader_annotation.dart';
 import 'package:xxread/core/reader/reader_auto_page_turn_controller.dart';
 import 'package:xxread/core/reader/reader_custom_theme.dart';
 import 'package:xxread/core/reader/reader_font_profile.dart';
+import 'package:xxread/core/reader/reader_header_footer_settings.dart';
 import 'package:xxread/core/reader/reader_leaf_status.dart';
 import 'package:xxread/core/reader/reader_layout.dart';
 import 'package:xxread/core/reader/reader_keep_screen_on.dart';
@@ -381,6 +382,8 @@ class _NativeReaderPageState extends State<NativeReaderPage>
   ReaderTopBarStyle _topBarStyle = ReaderTopBarStyle.reader;
   ReaderChapterProgressStyle _chapterProgressStyle =
       ReaderChapterProgressStyle.hidden;
+  ReaderHeaderFooterSettings _headerFooter =
+      const ReaderHeaderFooterSettings();
   ReaderAloudController? _readerAloudController;
   bool _readerAloudActive = false;
   ReaderAloudHighlight? _readerAloudHighlight;

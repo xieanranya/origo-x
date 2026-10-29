@@ -493,7 +493,7 @@
   "@readerSettingsTabTheme": {
     "description": "Reader settings sheet tab with the theme picker and top bar style"
   },
-  "readerSettingsTabText": "Text",
+  "readerSettingsTabText": "Text & paging",
   "@readerSettingsTabText": {
     "description": "Reader settings sheet tab with font size, line height and alignment"
   },
@@ -665,6 +665,42 @@
     }
   },
   "@readerChapterProgressRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readerSettingsTabHeaderFooter": "Header & footer",
+  "readerHeaderSectionTitle": "Header",
+  "readerHeaderEnabledTitle": "Show header",
+  "readerHeaderEnabledHint": "Chapter, book, time and battery above the text",
+  "readerHeaderChapterContent": "Chapter",
+  "readerHeaderBookContent": "Book",
+  "readerHeaderTimeContent": "Time",
+  "readerHeaderBatteryContent": "Battery",
+  "readerHeaderPositionLabel": "Alignment",
+  "readerHeaderFontSizeLabel": "Header size",
+  "readerHeaderTopBarHint": "Header content is shown only with the Reader info bar top style",
+  "readerFooterSectionTitle": "Footer",
+  "readerFooterEnabledTitle": "Show footer",
+  "readerFooterEnabledHint": "Reading progress below the text",
+  "readerFooterChapterContent": "Chapter progress",
+  "readerFooterPageContent": "Page",
+  "readerFooterPercentContent": "Percent",
+  "readerFooterRemainingContent": "Remaining",
+  "readerFooterPositionLabel": "Alignment",
+  "readerFooterFontSizeLabel": "Footer size",
+  "readerChromePositionSplit": "Split",
+  "readerChromePositionLeft": "Left",
+  "readerChromePositionCenter": "Center",
+  "readerChromePositionRight": "Right",
+  "readerHeaderFooterScrollHint": "Header and footer are shown in page-turning modes, not in continuous scroll",
+  "readerHeaderFooterSpreadHint": "On two-page layouts, the header and footer follow the left and right pages",
+  "readerHeaderFooterDone": "Done",
+  "readerPagesRemaining": "{count} pages left",
+  "@readerPagesRemaining": {
+    "description": "Remaining pages in the current chapter",
     "placeholders": {
       "count": {
         "type": "int"

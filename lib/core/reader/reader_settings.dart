@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'reader_header_footer_settings.dart';
 import 'reader_layout.dart';
 import 'reader_margin_settings.dart';
 import 'reader_tap_zones.dart';
@@ -89,13 +92,13 @@ class ReaderSettings {
   static const int defaultFontWeight = 400;
   static const double minLineHeight = 1.2;
   static const double maxLineHeight = 3;
-  static const double defaultLineHeight = 1.75;
+  static const double defaultLineHeight = 1.85;
   static const double minLetterSpacing = 0;
   static const double maxLetterSpacing = 3;
   static const double defaultLetterSpacing = 0;
   static const ReaderTextAlignment defaultTextAlignment =
-      ReaderTextAlignment.natural;
-  static const double defaultHorizontalMargin = 18;
+      ReaderTextAlignment.justified;
+  static const double defaultHorizontalMargin = 22;
   static const int defaultFirstLineIndent = 2;
   static const int defaultParagraphSpacing = 0;
   static const String defaultThemeId = 'day';
@@ -122,6 +125,7 @@ class ReaderSettings {
     this.tabletTwoPageEnabled = defaultTabletTwoPageEnabled,
     this.chapterTitlePageEnabled = true,
     this.chapterProgressStyle = ReaderChapterProgressStyle.hidden,
+    this.headerFooter = const ReaderHeaderFooterSettings(),
   });
 
   final double fontSize;
@@ -144,6 +148,9 @@ class ReaderSettings {
   final bool chapterTitlePageEnabled;
   final ReaderChapterProgressStyle chapterProgressStyle;
 
+  /// 页眉 / 页脚内容、位置与字号；默认值与旧版固定布局一致。
+  final ReaderHeaderFooterSettings headerFooter;
+
   ReaderSettings copyWith({
     double? fontSize,
     int? textBrightness,
@@ -164,6 +171,7 @@ class ReaderSettings {
     bool? tabletTwoPageEnabled,
     bool? chapterTitlePageEnabled,
     ReaderChapterProgressStyle? chapterProgressStyle,
+    ReaderHeaderFooterSettings? headerFooter,
   }) {
     return ReaderSettings(
       fontSize: (fontSize ?? this.fontSize).clamp(minFontSize, maxFontSize),
@@ -205,6 +213,7 @@ class ReaderSettings {
       chapterTitlePageEnabled:
           chapterTitlePageEnabled ?? this.chapterTitlePageEnabled,
       chapterProgressStyle: chapterProgressStyle ?? this.chapterProgressStyle,
+      headerFooter: headerFooter ?? this.headerFooter,
     );
   }
 }
@@ -237,6 +246,7 @@ class ReaderSettingsStore {
       'native_reader_txt_chapter_title_page_enabled';
   static const tapZonesKey = 'reader_tap_zones_v1';
   static const chapterProgressStyleKey = 'reader_chapter_progress_style';
+  static const headerFooterKey = 'native_reader_header_footer_v1';
 
   const ReaderSettingsStore();
 
@@ -293,7 +303,23 @@ class ReaderSettingsStore {
       ]);
     }
 
+    var headerFooter = const ReaderHeaderFooterSettings();
+    final rawHeaderFooter = prefs.getString(headerFooterKey);
+    if (rawHeaderFooter != null) {
+      try {
+        final decoded = jsonDecode(rawHeaderFooter);
+        if (decoded is Map<String, dynamic>) {
+          headerFooter = ReaderHeaderFooterSettings.fromJson(
+            Map<String, Object?>.from(decoded),
+          );
+        }
+      } catch (_) {
+        // 损坏的 JSON 不能拖垮阅读器；直接用默认值。
+      }
+    }
+
     return ReaderSettings(
+      headerFooter: headerFooter,
       chapterProgressStyle: ReaderChapterProgressStyle.values.firstWhere(
         (style) => style.name == prefs.getString(chapterProgressStyleKey),
         orElse: () => ReaderChapterProgressStyle.hidden,
@@ -383,6 +409,10 @@ class ReaderSettingsStore {
       prefs.setString(
         chapterProgressStyleKey,
         settings.chapterProgressStyle.name,
+      ),
+      prefs.setString(
+        headerFooterKey,
+        jsonEncode(settings.headerFooter.toJson()),
       ),
     ]);
   }
