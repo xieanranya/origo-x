@@ -2,7 +2,7 @@
 // 只在存在 0 < 进度 < 1 的最近阅读书籍时渲染。
 import 'package:flutter/material.dart';
 
-import '../shell/app_palette.dart';
+import '../../shell/app_palette.dart';
 import 'cover_art.dart';
 
 class ContinueReadingCard extends StatelessWidget {

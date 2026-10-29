@@ -189,49 +189,53 @@ class _ProfilePageState extends State<ProfilePage> {
     VoidCallback? onTap,
     bool showChevron = true,
   }) {
+    final children = <Widget>[
+      Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: palette.accentSoft,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon, size: 17, color: palette.accent),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.rowTitle.copyWith(color: palette.text),
+        ),
+      ),
+    ];
+    final valueText = value;
+    if (valueText != null) {
+      children.add(
+        Text(
+          valueText,
+          style: AppText.rowSub.copyWith(color: palette.text3),
+        ),
+      );
+    }
+    final tail = trailing;
+    if (tail != null) children.add(tail);
+    if (showChevron) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(Icons.chevron_right, size: 16, color: palette.text3),
+        ),
+      );
+    }
+
     return InkWell(
       onTap: onTap,
       child: SizedBox(
         height: 52,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: palette.accentSoft,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, size: 17, color: palette.accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.rowTitle.copyWith(color: palette.text),
-                ),
-              ),
-              if (value != null)
-                Text(
-                  value,
-                  style: AppText.rowSub.copyWith(color: palette.text3),
-                ),
-              if (trailing != null) trailing,
-              if (showChevron)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: palette.text3,
-                  ),
-                ),
-            ],
-          ),
+          child: Row(children: children),
         ),
       ),
     );

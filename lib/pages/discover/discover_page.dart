@@ -465,31 +465,36 @@ class _DiscoverPageState extends State<DiscoverPage> {
     required String subtitle,
     Widget? action,
   }) {
+    final children = <Widget>[
+      Icon(icon, size: 44, color: palette.text3.withValues(alpha: 0.6)),
+      const SizedBox(height: 14),
+      Text(
+        title,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: palette.text,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        subtitle,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
+      ),
+    ];
+    final button = action;
+    if (button != null) {
+      children.add(const SizedBox(height: 18));
+      children.add(button);
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(40, 0, 40, 60),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 44, color: palette.text3.withValues(alpha: 0.6)),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: palette.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
-            ),
-            if (action != null) ...[const SizedBox(height: 18), action],
-          ],
+          children: children,
         ),
       ),
     );

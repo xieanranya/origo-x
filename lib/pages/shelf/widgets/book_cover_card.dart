@@ -2,7 +2,7 @@
 // 封面画法统一走 CoverArt（有图用图，没图按书名生成固定渐变 + 首字）。
 import 'package:flutter/material.dart';
 
-import '../shell/app_palette.dart';
+import '../../shell/app_palette.dart';
 import 'cover_art.dart';
 
 class BookCoverCard extends StatelessWidget {
