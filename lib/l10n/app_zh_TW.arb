@@ -330,5 +330,6 @@
   "readerHeaderFooterScrollHint": "頁眉頁腳只在翻頁模式顯示，上下捲動模式不顯示",
   "readerHeaderFooterSpreadHint": "雙頁模式下頁眉頁腳按左右頁自動分配",
   "readerHeaderFooterDone": "完成",
-  "readerPagesRemaining": "剩 {count} 頁"
+  "readerPagesRemaining": "剩 {count} 頁",
+  "readerSettingsLiveHint": "即時生效"
 }

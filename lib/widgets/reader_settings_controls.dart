@@ -358,12 +358,32 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
       maxHeightFactor: 0.68,
       header: Row(
         children: [
-          Expanded(
-            child: Text(widget.title, style: theme.textTheme.titleLarge),
+          Text(
+            widget.title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
           ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.readerSettingsLiveHint,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: palette.secondaryText,
+            ),
+          ),
+          const Spacer(),
           if (widget.doneLabel != null)
             TextButton(
               key: const ValueKey('reader-settings-done'),
+              style: TextButton.styleFrom(
+                foregroundColor: palette.accent,
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onPressed: () => Navigator.of(context).pop(),
               child: Text(widget.doneLabel!),
             ),
@@ -384,31 +404,16 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
             onSystemThemeLongPress: () => unawaited(_showSystemThemeEditor()),
           ),
           const SizedBox(height: 12),
-          SegmentedButton<_ReaderSettingsTab>(
-            key: const ValueKey('reader-settings-tab-bar'),
-            expandedInsets: EdgeInsets.zero,
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: _ReaderSettingsTab.theme,
-                label: Text(widget.tabThemeLabel),
-              ),
-              ButtonSegment(
-                value: _ReaderSettingsTab.text,
-                label: Text(widget.tabTextLabel),
-              ),
-              ButtonSegment(
-                value: _ReaderSettingsTab.layout,
-                label: Text(widget.tabLayoutLabel),
-              ),
-              ButtonSegment(
-                value: _ReaderSettingsTab.chrome,
-                label: Text(widget.headerFooterLabels.tabLabel),
-              ),
+          _ReaderSettingsTabBar(
+            palette: palette,
+            current: _tab,
+            labels: [
+              widget.tabThemeLabel,
+              widget.tabTextLabel,
+              widget.tabLayoutLabel,
+              widget.headerFooterLabels.tabLabel,
             ],
-            selected: {_tab},
-            onSelectionChanged: (selection) {
-              final nextTab = selection.first;
+            onChanged: (nextTab) {
               if (nextTab == _tab) return;
               setState(() {
                 _tabDirection = nextTab.index > _tab.index ? 1 : -1;
@@ -438,7 +443,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
       _ReaderSettingsTab.layout => _layoutTabChildren(),
       _ReaderSettingsTab.chrome => _chromeTabChildren(theme),
     };
-    return AnimatedSize(
+    final content = AnimatedSize(
       key: const ValueKey('reader-settings-tab-animated-size'),
       duration: duration,
       curve: Curves.easeOutCubic,
@@ -471,6 +476,9 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
         ),
       ),
     );
+    // 主题 / 文字与翻页 / 排版统一放进 hybrid 的圆角卡片；页眉页脚自带卡片。
+    if (_tab == _ReaderSettingsTab.chrome) return content;
+    return _SheetCard(theme: theme, child: content);
   }
 
   Future<void> _changeFontFamily() async {
@@ -2358,4 +2366,119 @@ class ReaderMarginControls extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// 面板的圆角内容卡片（对齐 hybrid 的 `.card`）。
+class _SheetCard extends StatelessWidget {
+  const _SheetCard({required this.theme, required this.child});
+
+  final ThemeData theme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.28,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// hybrid 的页签条：灰底圆角容器 + 选中项白底胶囊，替代 Material SegmentedButton。
+/// 字号压到 10.5，四个页签在 320dp 也不会挤出去。
+class _ReaderSettingsTabBar extends StatelessWidget {
+  const _ReaderSettingsTabBar({
+    required this.palette,
+    required this.current,
+    required this.labels,
+    required this.onChanged,
+  });
+
+  final ReaderThemePalette palette;
+  final _ReaderSettingsTab current;
+  final List<String> labels;
+  final ValueChanged<_ReaderSettingsTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: palette.controlFill,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < _ReaderSettingsTab.values.length; i++)
+            Expanded(
+              child: _ReaderSettingsTabButton(
+                palette: palette,
+                label: labels[i],
+                selected: _ReaderSettingsTab.values[i] == current,
+                onTap: () => onChanged(_ReaderSettingsTab.values[i]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReaderSettingsTabButton extends StatelessWidget {
+  const _ReaderSettingsTabButton({
+    required this.palette,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ReaderThemePalette palette;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? palette.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: palette.shadow.withValues(alpha: 0.35),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? palette.text : palette.secondaryText,
+          ),
+        ),
+      ),
+    );
+  }
 }

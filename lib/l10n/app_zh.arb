@@ -536,5 +536,6 @@
   "readerHeaderFooterScrollHint": "页眉页脚只在翻页模式显示，上下滚动模式不显示",
   "readerHeaderFooterSpreadHint": "双页模式下页眉页脚按左右页自动分配",
   "readerHeaderFooterDone": "完成",
-  "readerPagesRemaining": "剩 {count} 页"
+  "readerPagesRemaining": "剩 {count} 页",
+  "readerSettingsLiveHint": "实时生效"
 }
