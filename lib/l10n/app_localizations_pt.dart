@@ -485,6 +485,22 @@ class AppLocalizationsPt extends AppLocalizations {
   String get readerThemeTitle => 'Tema de leitura';
 
   @override
+  String get readerThemePaper => 'Paper';
+
+  @override
+  String get readerMoreActions => 'More actions';
+
+  @override
+  String get readerRestoreDesignDefaults => 'Restore polished defaults';
+
+  @override
+  String get readerRestoreDesignDefaultsConfirm =>
+      'This resets type size, line height, theme, header and footer. Reading progress and bookmarks are kept.';
+
+  @override
+  String get readerRestoreDesignDefaultsDone => 'Polished defaults restored';
+
+  @override
   String get readerThemeDescription =>
       'Altera apenas a página de leitura e seus controles';
 
@@ -800,4 +816,97 @@ class AppLocalizationsPt extends AppLocalizations {
   String readerChapterProgressRemaining(int count) {
     return '$count capítulos à frente';
   }
+
+  @override
+  String get readerSettingsTabHeaderFooter => 'Header & footer';
+
+  @override
+  String get readerHeaderSectionTitle => 'Header';
+
+  @override
+  String get readerHeaderEnabledTitle => 'Show header';
+
+  @override
+  String get readerHeaderEnabledHint =>
+      'Chapter, book, time and battery above the text';
+
+  @override
+  String get readerHeaderChapterContent => 'Chapter';
+
+  @override
+  String get readerHeaderBookContent => 'Book';
+
+  @override
+  String get readerHeaderTimeContent => 'Time';
+
+  @override
+  String get readerHeaderBatteryContent => 'Battery';
+
+  @override
+  String get readerHeaderPositionLabel => 'Alignment';
+
+  @override
+  String get readerHeaderFontSizeLabel => 'Header size';
+
+  @override
+  String get readerHeaderTopBarHint =>
+      'Header content is shown only with the Reader info bar top style';
+
+  @override
+  String get readerFooterSectionTitle => 'Footer';
+
+  @override
+  String get readerFooterEnabledTitle => 'Show footer';
+
+  @override
+  String get readerFooterEnabledHint => 'Reading progress below the text';
+
+  @override
+  String get readerFooterChapterContent => 'Chapter progress';
+
+  @override
+  String get readerFooterPageContent => 'Page';
+
+  @override
+  String get readerFooterPercentContent => 'Percent';
+
+  @override
+  String get readerFooterRemainingContent => 'Remaining';
+
+  @override
+  String get readerFooterPositionLabel => 'Alignment';
+
+  @override
+  String get readerFooterFontSizeLabel => 'Footer size';
+
+  @override
+  String get readerChromePositionSplit => 'Split';
+
+  @override
+  String get readerChromePositionLeft => 'Left';
+
+  @override
+  String get readerChromePositionCenter => 'Center';
+
+  @override
+  String get readerChromePositionRight => 'Right';
+
+  @override
+  String get readerHeaderFooterScrollHint =>
+      'Header and footer are shown in page-turning modes, not in continuous scroll';
+
+  @override
+  String get readerHeaderFooterSpreadHint =>
+      'On two-page layouts, the header and footer follow the left and right pages';
+
+  @override
+  String get readerHeaderFooterDone => 'Done';
+
+  @override
+  String readerPagesRemaining(int count) {
+    return '$count pages left';
+  }
+
+  @override
+  String get readerSettingsLiveHint => 'Live';
 }

@@ -482,6 +482,11 @@
   "readerTopBarStyleHidden": "Fully immersive",
   "readerTopBarStyleHiddenHint": "Show no information at the top",
   "readerThemeTitle": "Reading theme",
+  "readerThemePaper": "Paper",
+  "readerMoreActions": "More actions",
+  "readerRestoreDesignDefaults": "Restore polished defaults",
+  "readerRestoreDesignDefaultsConfirm": "This resets type size, line height, theme, header and footer. Reading progress and bookmarks are kept.",
+  "readerRestoreDesignDefaultsDone": "Polished defaults restored",
   "@readerThemeTitle": {
     "description": "Title of the reader-only theme selector"
   },

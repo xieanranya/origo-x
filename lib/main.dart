@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
+import 'core/reader/reader_design_migration.dart';
 import 'pages/shell/home_shell.dart';
 import 'services/core/app_settings_service.dart';
 import 'services/core/theme_notifier.dart';
@@ -12,6 +13,9 @@ import 'utils/reader_themes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 必须在读取主题配色 / AppSettingsNotifier 之前完成：覆盖安装时把旧的
+  // 字号、字重、主题、行高一次性迁移到精校基线。
+  await ReaderDesignMigration.ensureApplied();
   await ReaderThemes.loadSavedPalette();
   runApp(const LocalReaderApp());
 }

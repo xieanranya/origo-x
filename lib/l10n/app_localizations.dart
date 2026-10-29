@@ -976,6 +976,36 @@ abstract class AppLocalizations {
   /// **'Reading theme'**
   String get readerThemeTitle;
 
+  /// No description provided for @readerThemePaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper'**
+  String get readerThemePaper;
+
+  /// No description provided for @readerMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get readerMoreActions;
+
+  /// No description provided for @readerRestoreDesignDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore polished defaults'**
+  String get readerRestoreDesignDefaults;
+
+  /// No description provided for @readerRestoreDesignDefaultsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This resets type size, line height, theme, header and footer. Reading progress and bookmarks are kept.'**
+  String get readerRestoreDesignDefaultsConfirm;
+
+  /// No description provided for @readerRestoreDesignDefaultsDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Polished defaults restored'**
+  String get readerRestoreDesignDefaultsDone;
+
   /// Explains that reading themes are independent from the app theme
   ///
   /// In en, this message translates to:
@@ -991,7 +1021,7 @@ abstract class AppLocalizations {
   /// Reader settings sheet tab with font size, line height and alignment
   ///
   /// In en, this message translates to:
-  /// **'Text'**
+  /// **'Text & paging'**
   String get readerSettingsTabText;
 
   /// Reader settings sheet tab with the page margins
@@ -1533,6 +1563,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} chapters ahead'**
   String readerChapterProgressRemaining(int count);
+
+  /// No description provided for @readerSettingsTabHeaderFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Header & footer'**
+  String get readerSettingsTabHeaderFooter;
+
+  /// No description provided for @readerHeaderSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Header'**
+  String get readerHeaderSectionTitle;
+
+  /// No description provided for @readerHeaderEnabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show header'**
+  String get readerHeaderEnabledTitle;
+
+  /// No description provided for @readerHeaderEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter, book, time and battery above the text'**
+  String get readerHeaderEnabledHint;
+
+  /// No description provided for @readerHeaderChapterContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get readerHeaderChapterContent;
+
+  /// No description provided for @readerHeaderBookContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Book'**
+  String get readerHeaderBookContent;
+
+  /// No description provided for @readerHeaderTimeContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get readerHeaderTimeContent;
+
+  /// No description provided for @readerHeaderBatteryContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery'**
+  String get readerHeaderBatteryContent;
+
+  /// No description provided for @readerHeaderPositionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Alignment'**
+  String get readerHeaderPositionLabel;
+
+  /// No description provided for @readerHeaderFontSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Header size'**
+  String get readerHeaderFontSizeLabel;
+
+  /// No description provided for @readerHeaderTopBarHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Header content is shown only with the Reader info bar top style'**
+  String get readerHeaderTopBarHint;
+
+  /// No description provided for @readerFooterSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Footer'**
+  String get readerFooterSectionTitle;
+
+  /// No description provided for @readerFooterEnabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show footer'**
+  String get readerFooterEnabledTitle;
+
+  /// No description provided for @readerFooterEnabledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading progress below the text'**
+  String get readerFooterEnabledHint;
+
+  /// No description provided for @readerFooterChapterContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter progress'**
+  String get readerFooterChapterContent;
+
+  /// No description provided for @readerFooterPageContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Page'**
+  String get readerFooterPageContent;
+
+  /// No description provided for @readerFooterPercentContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Percent'**
+  String get readerFooterPercentContent;
+
+  /// No description provided for @readerFooterRemainingContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining'**
+  String get readerFooterRemainingContent;
+
+  /// No description provided for @readerFooterPositionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Alignment'**
+  String get readerFooterPositionLabel;
+
+  /// No description provided for @readerFooterFontSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Footer size'**
+  String get readerFooterFontSizeLabel;
+
+  /// No description provided for @readerChromePositionSplit.
+  ///
+  /// In en, this message translates to:
+  /// **'Split'**
+  String get readerChromePositionSplit;
+
+  /// No description provided for @readerChromePositionLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get readerChromePositionLeft;
+
+  /// No description provided for @readerChromePositionCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get readerChromePositionCenter;
+
+  /// No description provided for @readerChromePositionRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get readerChromePositionRight;
+
+  /// No description provided for @readerHeaderFooterScrollHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Header and footer are shown in page-turning modes, not in continuous scroll'**
+  String get readerHeaderFooterScrollHint;
+
+  /// No description provided for @readerHeaderFooterSpreadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'On two-page layouts, the header and footer follow the left and right pages'**
+  String get readerHeaderFooterSpreadHint;
+
+  /// No description provided for @readerHeaderFooterDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get readerHeaderFooterDone;
+
+  /// Remaining pages in the current chapter
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pages left'**
+  String readerPagesRemaining(int count);
+
+  /// No description provided for @readerSettingsLiveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get readerSettingsLiveHint;
 }
 
 class _AppLocalizationsDelegate

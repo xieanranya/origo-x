@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/reader_themes.dart';
+import 'reader_paper_texture.dart';
 import 'reader_theme_background_image.dart';
 
 class ReaderThemeBackground extends StatelessWidget {
@@ -32,6 +33,8 @@ class ReaderThemeBackground extends StatelessWidget {
               ),
             ),
           ),
+        if (palette.id == ReaderThemes.paper.id)
+          Positioned.fill(child: ReaderPaperTexture(color: palette.text)),
         child,
       ],
     );

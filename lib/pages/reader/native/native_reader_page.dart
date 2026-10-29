@@ -24,6 +24,7 @@ import 'package:xxread/core/reader/native_text_paginator.dart';
 import 'package:xxread/core/reader/reader_annotation.dart';
 import 'package:xxread/core/reader/reader_auto_page_turn_controller.dart';
 import 'package:xxread/core/reader/reader_custom_theme.dart';
+import 'package:xxread/core/reader/reader_design_migration.dart';
 import 'package:xxread/core/reader/reader_font_profile.dart';
 import 'package:xxread/core/reader/reader_header_footer_settings.dart';
 import 'package:xxread/core/reader/reader_leaf_status.dart';
@@ -84,6 +85,7 @@ import 'package:xxread/widgets/reader_opening_loader.dart';
 import 'package:xxread/widgets/reader_search_sheet.dart';
 import 'package:xxread/widgets/reader_paper_page_leaf.dart';
 import 'package:xxread/widgets/reader_pull_bookmark.dart';
+import 'package:xxread/widgets/reader_reading_chrome.dart';
 import 'package:xxread/widgets/reader_settings_controls.dart';
 import 'package:xxread/widgets/reader_shader_page_curl.dart';
 import 'package:xxread/widgets/reader_sweep_page_turn.dart';
@@ -353,22 +355,23 @@ class _NativeReaderPageState extends State<NativeReaderPage>
   int _textBrightness = ReaderSettings.defaultTextBrightness;
   bool _dimTextInDarkMode = ReaderSettings.defaultDimTextInDarkMode;
   int _fontWeight = ReaderSettings.defaultFontWeight;
-  double _lineHeight = 1.75;
+  double _lineHeight = ReaderSettings.defaultLineHeight;
   double _letterSpacing = ReaderSettings.defaultLetterSpacing;
   ReaderTextAlignment _textAlignment = ReaderSettings.defaultTextAlignment;
   int _firstLineIndent = ReaderSettings.defaultFirstLineIndent;
   int _paragraphSpacing = ReaderSettings.defaultParagraphSpacing;
-  double _horizontalMargin = 18;
+  double _horizontalMargin = ReaderSettings.defaultHorizontalMargin;
   double _topMargin = ReaderMarginSettings.defaultTop;
   double _bottomMargin = ReaderMarginSettings.defaultBottom;
   FontOption _readerFont = FontCatalog.defaultReaderFont;
-  String _readerThemeId = ReaderThemes.day.id;
+  String _readerThemeId = ReaderSettings.defaultThemeId;
   bool _pullBookmarkEnabled = false;
   bool _tapPageAnimationEnabled = true;
   ReaderTapZones _tapZones = ReaderTapZones.defaults;
   bool _tapZoneEditorVisible = false;
   bool _tabletTwoPageEnabled = ReaderSettings.defaultTabletTwoPageEnabled;
-  bool _chapterTitlePageEnabled = true;
+  bool _chapterTitlePageEnabled =
+      ReaderSettings.defaultChapterTitlePageEnabled;
   bool _readerSettingsLoaded = false;
   bool _readerFontReady = true;
   bool _readerSystemUiApplied = false;
@@ -381,7 +384,7 @@ class _NativeReaderPageState extends State<NativeReaderPage>
   Timer? _openingLoaderTimer;
   ReaderTopBarStyle _topBarStyle = ReaderTopBarStyle.reader;
   ReaderChapterProgressStyle _chapterProgressStyle =
-      ReaderChapterProgressStyle.hidden;
+      ReaderSettings.defaultChapterProgressStyle;
   ReaderHeaderFooterSettings _headerFooter =
       const ReaderHeaderFooterSettings();
   ReaderAloudController? _readerAloudController;

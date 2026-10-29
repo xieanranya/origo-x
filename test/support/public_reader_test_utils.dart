@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -67,4 +68,17 @@ Future<void> drainPublicReaderCache(WidgetTester tester) async {
     await completion;
     expect(NativeReaderCacheStore.instance.hasRetainedResources, isFalse);
   });
+}
+
+/// Windows 上阅读器缓存可能还持有临时目录里的文件句柄，直接删除会抛
+/// `errno = 32`。重试一小段时间；仍失败就留给系统清理，不让用例失败。
+Future<void> deleteTempDirectoryQuietly(Directory directory) async {
+  for (var attempt = 0; attempt < 12; attempt++) {
+    try {
+      if (directory.existsSync()) directory.deleteSync(recursive: true);
+      return;
+    } on FileSystemException {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
 }

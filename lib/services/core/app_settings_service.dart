@@ -20,7 +20,7 @@ class AppSettingsNotifier extends ChangeNotifier {
   static const String _keyAppLocale = 'app_locale';
   static const String _keyLegacyLocale = 'language';
   static const String _keyAppFontId = 'app_font_id_v2';
-  static const String _keyReaderFontId = 'reader_font_id_v2';
+  static const String readerFontIdKey = 'reader_font_id_v2';
   static const String _keyEpubReaderFontId = 'epub_reader_font_id_v1';
   static const String _keyLegacyAppFontFamily = 'app_font_family';
   static const String _keyHideNavigationLabels =
@@ -190,7 +190,7 @@ class AppSettingsNotifier extends ChangeNotifier {
       }
     }
     _readerFontId = FontCatalog.readerFontForId(
-      prefs.getString(_keyReaderFontId),
+      prefs.getString(readerFontIdKey),
       customFonts: availableCustomFonts,
     ).id;
     _epubReaderFontId = FontCatalog.epubReaderFontForId(
@@ -265,7 +265,7 @@ class AppSettingsNotifier extends ChangeNotifier {
     );
     _readerFontId = await _restoreFontSelection(
       prefs: prefs,
-      key: _keyReaderFontId,
+      key: readerFontIdKey,
       option: readerFont,
       fallbackId: FontCatalog.defaultReaderFont.id,
     );
@@ -368,7 +368,7 @@ class AppSettingsNotifier extends ChangeNotifier {
     _readerFontId = normalized;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyReaderFontId, normalized);
+    await prefs.setString(readerFontIdKey, normalized);
   }
 
   Future<void> setEpubReaderFontId(String id) async {
@@ -574,7 +574,7 @@ class AppSettingsNotifier extends ChangeNotifier {
     }
     if (_readerFontId == id) {
       _readerFontId = FontCatalog.defaultReaderFont.id;
-      await prefs.setString(_keyReaderFontId, _readerFontId);
+      await prefs.setString(readerFontIdKey, _readerFontId);
       selectionChanged = true;
     }
     if (_epubReaderFontId == id) {

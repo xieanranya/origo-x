@@ -338,7 +338,7 @@ class ReaderChromeOverlay extends StatelessWidget {
             ),
           ),
         if (autoPageTurnController != null)
-          _ReaderAutoPageTurnControl(
+          ReaderAutoPageTurnControl(
             palette: palette,
             controller: autoPageTurnController!,
             chromeVisible: visible,
@@ -361,7 +361,7 @@ class ReaderChromeOverlay extends StatelessWidget {
                   ignoring: !shown,
                   child: ExcludeSemantics(
                     excluding: !shown,
-                    child: _ReaderAutoPageTurnShortcut(
+                    child: ReaderAutoPageTurnShortcut(
                       palette: palette,
                       controller: autoPageTurnController!,
                       onResume: onResumeAutoPageTurn,
@@ -376,8 +376,9 @@ class ReaderChromeOverlay extends StatelessWidget {
   }
 }
 
-class _ReaderAutoPageTurnControl extends StatefulWidget {
-  const _ReaderAutoPageTurnControl({
+class ReaderAutoPageTurnControl extends StatefulWidget {
+  const ReaderAutoPageTurnControl({
+    super.key,
     required this.palette,
     required this.controller,
     required this.chromeVisible,
@@ -390,11 +391,11 @@ class _ReaderAutoPageTurnControl extends StatefulWidget {
   final VoidCallback? onResume;
 
   @override
-  State<_ReaderAutoPageTurnControl> createState() =>
-      _ReaderAutoPageTurnControlState();
+  State<ReaderAutoPageTurnControl> createState() =>
+      ReaderAutoPageTurnControlState();
 }
 
-class _ReaderAutoPageTurnControlState extends State<_ReaderAutoPageTurnControl>
+class ReaderAutoPageTurnControlState extends State<ReaderAutoPageTurnControl>
     with SingleTickerProviderStateMixin {
   late final AnimationController _reveal = AnimationController(
     vsync: this,
@@ -426,7 +427,7 @@ class _ReaderAutoPageTurnControlState extends State<_ReaderAutoPageTurnControl>
   }
 
   @override
-  void didUpdateWidget(covariant _ReaderAutoPageTurnControl oldWidget) {
+  void didUpdateWidget(covariant ReaderAutoPageTurnControl oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_controllerChanged);
@@ -599,8 +600,9 @@ class _ReaderAutoPageTurnControlState extends State<_ReaderAutoPageTurnControl>
   };
 }
 
-class _ReaderAutoPageTurnShortcut extends StatelessWidget {
-  const _ReaderAutoPageTurnShortcut({
+class ReaderAutoPageTurnShortcut extends StatelessWidget {
+  const ReaderAutoPageTurnShortcut({
+    super.key,
     required this.palette,
     required this.controller,
     this.onResume,

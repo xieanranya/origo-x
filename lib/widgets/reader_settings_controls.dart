@@ -122,6 +122,7 @@ class ReaderSettingsSheet extends StatefulWidget {
     required this.fontFamilyValueLabel,
     required this.fontFamilyHint,
     required this.onFontFamilyTap,
+    this.onRestoreDesignDefaults,
     required this.fontSizeLabel,
     required this.textBrightnessLabel,
     required this.dimTextInDarkModeTitle,
@@ -223,6 +224,9 @@ class ReaderSettingsSheet extends StatefulWidget {
   final String fontFamilyValueLabel;
   final String fontFamilyHint;
   final Future<ReaderFontChoice?> Function() onFontFamilyTap;
+
+  /// 「恢复精校默认」：写回精校默认值并刷新阅读页，不清书籍进度/书签。
+  final Future<void> Function()? onRestoreDesignDefaults;
   final String fontSizeLabel;
   final String textBrightnessLabel;
   final String dimTextInDarkModeTitle;
@@ -355,7 +359,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
     final theme = palette.toThemeData(typography: Theme.of(context).textTheme);
     return ReaderSettingsSheetFrame(
       palette: palette,
-      maxHeightFactor: 0.68,
+      maxHeightFactor: 0.72,
       header: Row(
         children: [
           Text(
@@ -374,6 +378,17 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
             ),
           ),
           const Spacer(),
+          if (widget.onRestoreDesignDefaults != null)
+            IconButton(
+              key: const ValueKey('reader-settings-restore-defaults'),
+              tooltip: context.l10n.readerRestoreDesignDefaults,
+              onPressed: () => unawaited(_confirmRestoreDesignDefaults()),
+              icon: const Icon(Icons.settings_backup_restore_rounded, size: 18),
+              color: palette.secondaryText,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+              padding: EdgeInsets.zero,
+            ),
           if (widget.doneLabel != null)
             TextButton(
               key: const ValueKey('reader-settings-done'),
@@ -479,6 +494,41 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
     // 主题 / 文字与翻页 / 排版统一放进 hybrid 的圆角卡片；页眉页脚自带卡片。
     if (_tab == _ReaderSettingsTab.chrome) return content;
     return _SheetCard(theme: theme, child: content);
+  }
+
+  Future<void> _confirmRestoreDesignDefaults() async {
+    final palette = ReaderThemes.byId(
+      _themeId,
+      platformBrightness: MediaQuery.platformBrightnessOf(context),
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: palette.surface,
+        title: Text(
+          context.l10n.readerRestoreDesignDefaults,
+          style: TextStyle(fontSize: 16, color: palette.text),
+        ),
+        content: Text(
+          context.l10n.readerRestoreDesignDefaultsConfirm,
+          style: TextStyle(fontSize: 13, height: 1.5, color: palette.text),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await widget.onRestoreDesignDefaults?.call();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _changeFontFamily() async {
@@ -1544,8 +1594,7 @@ class ReaderSettingsSheetFrame extends StatelessWidget {
         child: SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight:
-                  MediaQuery.sizeOf(context).height * maxHeightFactor,
+              maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1601,8 +1650,8 @@ class ReaderThemeStrip extends StatefulWidget {
     this.onSystemThemeLongPress,
     this.palettes,
     this.showCustomAction = true,
-    this.cardWidth = 108,
-    this.spacing = 10,
+    this.cardWidth = 64,
+    this.spacing = 8,
   });
 
   final String selectedThemeId;
@@ -1652,13 +1701,32 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     });
   }
 
+  /// 首屏只放 5 张主卡（纸黄 / 白天 / 护眼 / 黑夜 / 自定义）；
+  /// 其余主题统一进「自定义 / 更多主题」页，横向滚动不再一长串。
+  static const List<String> _primaryThemeIds = <String>[
+    'paper',
+    'day',
+    'green',
+    'night',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final customThemes = ReaderThemes.customThemes;
-    final themes = widget.palettes ?? ReaderThemes.orderedPalettes;
+    final allThemes = widget.palettes ?? ReaderThemes.orderedPalettes;
+    final primary = allThemes
+        .where((palette) => _primaryThemeIds.contains(palette.id))
+        .toList(growable: false);
+    final themes = <ReaderThemePalette>[
+      ...primary,
+      if (!primary.any((palette) => palette.id == widget.selectedThemeId))
+        ...allThemes
+            .where((palette) => palette.id == widget.selectedThemeId)
+            .take(1),
+    ];
     final inheritedScrollBehavior = ScrollConfiguration.of(context);
     return SizedBox(
-      height: 122,
+      height: 78,
       child: Listener(
         onPointerSignal: _handlePointerSignal,
         child: ScrollConfiguration(
@@ -1679,87 +1747,67 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
               if (widget.showCustomAction && index == themes.length) {
                 final colors = Theme.of(context).colorScheme;
                 return SizedBox(
-                  width: 108,
+                  width: widget.cardWidth,
                   child: Semantics(
                     button: true,
                     label: widget.labelFor(ReaderCustomTheme.legacyThemeId),
                     child: InkWell(
                       key: const ValueKey('reader-custom-theme-card'),
                       onTap: widget.onCustomThemeTap,
-                      borderRadius: BorderRadius.circular(18),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.all(10),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(6, 7, 6, 6),
                         decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: colors.outlineVariant,
-                            width: 1.2,
+                          color: colors.surfaceContainerHighest.withValues(
+                            alpha: 0.55,
                           ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: colors.outlineVariant),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    color: colors.surfaceContainerHighest,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: colors.outlineVariant,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Icons.add_rounded,
-                                    size: 20,
-                                    color: colors.onSurface,
-                                  ),
+                                Icon(
+                                  Icons.add_rounded,
+                                  size: 13,
+                                  color: colors.onSurfaceVariant,
                                 ),
-                                const Spacer(),
-                                if (customThemes.isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: colors.primaryContainer,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Text(
-                                      '${customThemes.length}',
-                                      style: TextStyle(
-                                        color: colors.onPrimaryContainer,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                if (customThemes.isNotEmpty) ...[
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${customThemes.length}',
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                ],
                               ],
                             ),
                             const Spacer(),
                             Text(
-                              customThemes.isEmpty ? 'Aa +' : 'Aa ···',
+                              'Aa',
                               style: TextStyle(
                                 color: colors.onSurface,
                                 fontSize: 19,
                                 height: 1,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 7),
+                            const SizedBox(height: 5),
                             Text(
                               widget.labelFor(ReaderCustomTheme.legacyThemeId),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: colors.onSurface,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 9.5,
+                                height: 1.1,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -1808,6 +1856,7 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     'night' => Icons.dark_mode_rounded,
     'navy' => Icons.nights_stay_rounded,
     'parchment' => Icons.auto_stories_rounded,
+    'paper' => Icons.description_outlined,
     'green' => Icons.eco_rounded,
     _ => Icons.light_mode_rounded,
   };
@@ -1816,7 +1865,7 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
 class _ReaderThemeCard extends StatelessWidget {
   const _ReaderThemeCard({
     super.key,
-    this.width = 108,
+    this.width = 64,
     required this.palette,
     required this.label,
     required this.selected,
@@ -1835,7 +1884,7 @@ class _ReaderThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardRadius = BorderRadius.circular(18);
+    final cardRadius = BorderRadius.circular(14);
     return SizedBox(
       width: width,
       child: Semantics(
@@ -1856,8 +1905,8 @@ class _ReaderThemeCard extends StatelessWidget {
                   ? [
                       BoxShadow(
                         color: palette.shadow.withValues(alpha: 0.16),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ]
                   : null,
@@ -1866,72 +1915,76 @@ class _ReaderThemeCard extends StatelessWidget {
               borderRadius: cardRadius,
               border: Border.all(
                 color: selected ? palette.accent : palette.border,
-                width: selected ? 2.2 : 1,
+                width: selected ? 2 : 1,
               ),
             ),
             child: ReaderThemeBackground(
               palette: palette,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 7),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(icon, size: 18, color: palette.secondaryText),
-                        if (onLongPress != null) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.tune_rounded,
-                            size: 13,
-                            color: palette.secondaryText.withValues(alpha: 0.7),
-                          ),
-                        ],
                         const Spacer(),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? palette.accent
-                                : palette.controlBar.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: palette.border),
+                        Text(
+                          'Aa',
+                          style: TextStyle(
+                            color: palette.text,
+                            fontSize: 19,
+                            height: 1,
+                            fontWeight: FontWeight.w600,
                           ),
-                          child: selected
-                              ? Icon(
-                                  Icons.check_rounded,
-                                  size: 14,
-                                  color: palette.onAccent,
-                                )
-                              : null,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: palette.text,
+                            fontSize: 9.5,
+                            height: 1.1,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    Text(
-                      'Aa',
-                      style: TextStyle(
-                        color: palette.text,
-                        fontSize: 20,
-                        height: 1,
-                        fontWeight: FontWeight.w700,
+                  ),
+                  Positioned(
+                    top: 5,
+                    left: 6,
+                    child: Icon(
+                      icon,
+                      size: 11,
+                      color: palette.secondaryText.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  if (selected)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: palette.accent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: palette.onAccent.withValues(alpha: 0.7),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 11,
+                          color: palette.onAccent,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: palette.text,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),

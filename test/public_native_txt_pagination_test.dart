@@ -30,13 +30,13 @@ void main() {
         );
   });
 
-  tearDownAll(() {
+  tearDownAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           null,
         );
-    supportDirectory.deleteSync(recursive: true);
+    await deleteTempDirectoryQuietly(supportDirectory);
   });
 
   testWidgets('local TXT opens and paginates without remote services', (

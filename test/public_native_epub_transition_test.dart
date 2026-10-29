@@ -32,13 +32,13 @@ void main() {
         );
   });
 
-  tearDownAll(() {
+  tearDownAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           null,
         );
-    supportDirectory.deleteSync(recursive: true);
+    await deleteTempDirectoryQuietly(supportDirectory);
   });
 
   testWidgets('local EPUB turns across chapters with one page controller', (

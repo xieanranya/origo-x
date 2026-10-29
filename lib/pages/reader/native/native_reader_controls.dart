@@ -78,6 +78,8 @@ extension _NativeReaderControls on _NativeReaderPageState {
     switch (themeId) {
       case ReaderThemes.systemId:
         return context.l10n.readerThemeFollowSystem;
+      case 'paper':
+        return context.l10n.readerThemePaper;
       case 'green':
         return context.l10n.readerThemeGreen;
       case 'navy':
@@ -440,8 +442,7 @@ extension _NativeReaderControls on _NativeReaderPageState {
             ? context.l10n.readerHeaderFooterScrollHint
             : null,
         doneLabel: context.l10n.readerHeaderFooterDone,
-        onHeaderFooterChanged: (value) =>
-            unawaited(_setHeaderFooter(value)),
+        onHeaderFooterChanged: (value) => unawaited(_setHeaderFooter(value)),
         advancedTypographyTitle: context.l10n.readerSettingsAdvancedTypography,
         themeDescription: context.l10n.readerThemeDescription,
         pageModeTitle: context.l10n.pageTurningMode,
@@ -467,6 +468,7 @@ extension _NativeReaderControls on _NativeReaderPageState {
             ? context.l10n.readerFontOverrideHint
             : FontCatalog.descriptionFor(context.l10n, _readerFont),
         onFontFamilyTap: _showReaderFontPicker,
+        onRestoreDesignDefaults: _restoreDesignDefaults,
         fontSizeLabel: context.l10n.fontSizeLabel,
         textBrightnessLabel: context.l10n.readerTextBrightnessLabel,
         dimTextInDarkModeTitle: context.l10n.readerDimTextInDarkModeTitle,
@@ -620,6 +622,201 @@ extension _NativeReaderControls on _NativeReaderPageState {
     await _applyReaderSystemUi();
   }
 
+  /// 底部进度滑杆：把本章 0..1 进度落到具体页，并在可用时同步横向 PageView。
+  void _seekToChapterPage(
+    double value,
+    List<_ReaderPageData> pages,
+    List<_BookPageRef> bookPages,
+    List<_NativeChapter> chapters,
+  ) {
+    if (pages.isEmpty) return;
+    final progress = value.clamp(0.0, 1.0);
+    final keepChromeVisible = _controlsVisible;
+    if (_pageMode == NativePageMode.verticalScroll) {
+      final parts = _visibleContinuousParts;
+      if (parts.length > 1 &&
+          _usesChapterScopedVerticalList &&
+          _verticalPageScrollController.isAttached) {
+        final target = (progress * (parts.length - 1)).round();
+        unawaited(
+          _verticalPageScrollController.scrollTo(
+            index: target,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      }
+      _verticalScrollProgress.value = progress;
+      _markReadingPositionChanged();
+      _keepChromeAfterSeek(keepChromeVisible);
+      return;
+    }
+    final lastIndex = pages.length - 1;
+    var targetPage = (progress * lastIndex).round().clamp(0, lastIndex);
+    if (_visibleUsesTwoPageLayout) {
+      targetPage = _spreadStartForPage(targetPage);
+    }
+    final usesBookPages =
+        bookPages.isNotEmpty && _pageMode != NativePageMode.instantPage;
+    if (usesBookPages) {
+      final bookIndex = bookPages.indexWhere(
+        (page) =>
+            page.chapterIndex == _chapterIndex && page.pageIndex == targetPage,
+      );
+      if (bookIndex >= 0) {
+        if (_pageMode == NativePageMode.horizontalSlide) {
+          final controller = _pageController;
+          if (controller != null && controller.hasClients) {
+            final localIndex = _visibleUsesTwoPageLayout
+                ? bookIndex ~/ 2
+                : bookIndex;
+            controller.jumpToPage(_horizontalPageIndexMap.origin + localIndex);
+          }
+        }
+        _onBookPageChanged(bookIndex, bookPages, chapters);
+        _keepChromeAfterSeek(keepChromeVisible);
+        return;
+      }
+    }
+    _markReaderAloudForManualPageTurn();
+    _setReaderState(() => _pageIndex = targetPage);
+    _keepChromeAfterSeek(keepChromeVisible);
+  }
+
+  /// 跳页会把控制栏按「翻页」逻辑收起；滑杆操作期间需要把它留在屏幕上。
+  void _keepChromeAfterSeek(bool wasVisible) {
+    if (!wasVisible) return;
+    _controlsTimer?.cancel();
+    if (!_controlsVisible) _setReaderState(() => _controlsVisible = true);
+    _controlsTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted) _setReaderState(() => _controlsVisible = false);
+    });
+  }
+
+  Future<void> _showReaderMoreMenu() async {
+    final palette = _readerTheme;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: palette.surface,
+      showDragHandle: true,
+      builder: (menuContext) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+              child: Text(
+                context.l10n.readerMoreActions,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: palette.text,
+                ),
+              ),
+            ),
+            _ReaderMoreTile(
+              palette: palette,
+              icon: Icons.search_rounded,
+              label: context.l10n.search,
+              onTap: () => Navigator.of(menuContext).pop('search'),
+            ),
+            _ReaderMoreTile(
+              palette: palette,
+              icon: Icons.auto_stories_rounded,
+              label: context.l10n.pageTurningMode,
+              onTap: () => Navigator.of(menuContext).pop('pageMode'),
+            ),
+            _ReaderMoreTile(
+              palette: palette,
+              icon: Icons.av_timer_rounded,
+              label: context.l10n.readerAutoPageTurnTitle,
+              onTap: () => Navigator.of(menuContext).pop('autoPageTurn'),
+            ),
+            _ReaderMoreTile(
+              palette: palette,
+              icon: Icons.settings_backup_restore_rounded,
+              label: context.l10n.readerRestoreDesignDefaults,
+              onTap: () => Navigator.of(menuContext).pop('restore'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'search':
+        await _showFullTextSearch();
+      case 'pageMode':
+        await _showPageModePicker();
+      case 'autoPageTurn':
+        await _showAutoPageTurnPicker();
+      case 'restore':
+        await _confirmRestoreDesignDefaults();
+    }
+  }
+
+  Future<void> _showPageModePicker() async {
+    final selectedMode = await _pickPageMode();
+    if (selectedMode == null || !mounted) return;
+    await _setPageMode(selectedMode);
+  }
+
+  Future<void> _showAutoPageTurnPicker() async {
+    _pauseAutoPageTurn();
+    final selection = await showReaderAutoPageTurnSheet(
+      context: context,
+      palette: _readerTheme,
+      controller: _autoPageTurnController,
+      vertical: _pageMode == NativePageMode.verticalScroll,
+    );
+    if (selection == null || !_canAutoPageTurn) return;
+    await _autoPageTurnController.applySelection(selection);
+    if (_canAutoPageTurn) await _resumeAutoPageTurn();
+  }
+
+  Future<void> _confirmRestoreDesignDefaults() async {
+    final palette = _readerTheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: palette.surface,
+        title: Text(
+          context.l10n.readerRestoreDesignDefaults,
+          style: TextStyle(fontSize: 16, color: palette.text),
+        ),
+        content: Text(
+          context.l10n.readerRestoreDesignDefaultsConfirm,
+          style: TextStyle(fontSize: 13, height: 1.5, color: palette.text),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _restoreDesignDefaults();
+  }
+
+  Future<void> _restoreDesignDefaults() async {
+    final appSettings = context.read<AppSettingsNotifier>();
+    await ReaderDesignMigration.applyDesignDefaults();
+    await appSettings.setReaderFontId(FontCatalog.serifFont.id);
+    if (!mounted) return;
+    await _loadPageMode();
+    if (!mounted) return;
+    showSideToast(context, context.l10n.readerRestoreDesignDefaultsDone);
+  }
+
   String _pageModeSummary(BuildContext context) {
     switch (_pageMode) {
       case NativePageMode.verticalScroll:
@@ -638,8 +835,14 @@ extension _NativeReaderControls on _NativeReaderPageState {
   }
 
   Future<void> _showPageModeSettings() async {
+    final selectedMode = await _pickPageMode();
+    if (selectedMode == null || !mounted) return;
+    Navigator.of(context).pop(selectedMode);
+  }
+
+  Future<NativePageMode?> _pickPageMode() async {
     var previewScrollByChapter = _scrollByChapter;
-    final selectedMode = await showModalBottomSheet<NativePageMode>(
+    return showModalBottomSheet<NativePageMode>(
       context: context,
       backgroundColor: _readerTheme.surface,
       showDragHandle: true,
@@ -667,8 +870,6 @@ extension _NativeReaderControls on _NativeReaderPageState {
         ),
       ),
     );
-    if (selectedMode == null || !mounted) return;
-    Navigator.of(context).pop(selectedMode);
   }
 
   Future<void> _showTopBarStyleSettings() async {
@@ -721,4 +922,45 @@ extension _NativeReaderControls on _NativeReaderPageState {
     ReaderTopBarStyle.floating => context.l10n.readerTopBarStyleFloatingHint,
     ReaderTopBarStyle.hidden => context.l10n.readerTopBarStyleHiddenHint,
   };
+}
+
+class _ReaderMoreTile extends StatelessWidget {
+  const _ReaderMoreTile({
+    required this.palette,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final ReaderThemePalette palette;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: palette.text),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 14, color: palette.text),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: palette.secondaryText,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

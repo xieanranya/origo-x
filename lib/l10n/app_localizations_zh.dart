@@ -458,13 +458,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readerThemeTitle => '阅读主题';
 
   @override
+  String get readerThemePaper => '纸黄';
+
+  @override
+  String get readerMoreActions => '更多操作';
+
+  @override
+  String get readerRestoreDesignDefaults => '恢复精校默认';
+
+  @override
+  String get readerRestoreDesignDefaultsConfirm =>
+      '将重置字号、行高、主题、页眉页脚；书籍进度和书签不会丢。';
+
+  @override
+  String get readerRestoreDesignDefaultsDone => '已恢复精校默认';
+
+  @override
   String get readerThemeDescription => '仅改变阅读页面与阅读控制栏，不影响应用主题';
 
   @override
   String get readerSettingsTabTheme => '主题';
 
   @override
-  String get readerSettingsTabText => '文字';
+  String get readerSettingsTabText => '文字与翻页';
 
   @override
   String get readerSettingsTabLayout => '版式';
@@ -749,6 +765,95 @@ class AppLocalizationsZh extends AppLocalizations {
   String readerChapterProgressRemaining(int count) {
     return '后续$count章';
   }
+
+  @override
+  String get readerSettingsTabHeaderFooter => '页眉页脚';
+
+  @override
+  String get readerHeaderSectionTitle => '页眉';
+
+  @override
+  String get readerHeaderEnabledTitle => '显示页眉';
+
+  @override
+  String get readerHeaderEnabledHint => '正文上方的章节、书名、时间与电量';
+
+  @override
+  String get readerHeaderChapterContent => '章节名';
+
+  @override
+  String get readerHeaderBookContent => '书名';
+
+  @override
+  String get readerHeaderTimeContent => '时间';
+
+  @override
+  String get readerHeaderBatteryContent => '电量';
+
+  @override
+  String get readerHeaderPositionLabel => '对齐';
+
+  @override
+  String get readerHeaderFontSizeLabel => '页眉字号';
+
+  @override
+  String get readerHeaderTopBarHint => '页眉内容仅在「阅读信息栏」顶部样式下显示';
+
+  @override
+  String get readerFooterSectionTitle => '页脚';
+
+  @override
+  String get readerFooterEnabledTitle => '显示页脚';
+
+  @override
+  String get readerFooterEnabledHint => '正文下方的阅读进度';
+
+  @override
+  String get readerFooterChapterContent => '章节进度';
+
+  @override
+  String get readerFooterPageContent => '页码';
+
+  @override
+  String get readerFooterPercentContent => '百分比';
+
+  @override
+  String get readerFooterRemainingContent => '剩余页数';
+
+  @override
+  String get readerFooterPositionLabel => '对齐';
+
+  @override
+  String get readerFooterFontSizeLabel => '页脚字号';
+
+  @override
+  String get readerChromePositionSplit => '分散';
+
+  @override
+  String get readerChromePositionLeft => '居左';
+
+  @override
+  String get readerChromePositionCenter => '居中';
+
+  @override
+  String get readerChromePositionRight => '居右';
+
+  @override
+  String get readerHeaderFooterScrollHint => '页眉页脚只在翻页模式显示，上下滚动模式不显示';
+
+  @override
+  String get readerHeaderFooterSpreadHint => '双页模式下页眉页脚按左右页自动分配';
+
+  @override
+  String get readerHeaderFooterDone => '完成';
+
+  @override
+  String readerPagesRemaining(int count) {
+    return '剩 $count 页';
+  }
+
+  @override
+  String get readerSettingsLiveHint => '实时生效';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -1211,7 +1316,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get readerSettingsTabTheme => '主題';
 
   @override
-  String get readerSettingsTabText => '文字';
+  String get readerSettingsTabText => '文字與翻頁';
 
   @override
   String get readerSettingsTabLayout => '版式';
@@ -1496,4 +1601,93 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String readerChapterProgressRemaining(int count) {
     return '後續$count章';
   }
+
+  @override
+  String get readerSettingsTabHeaderFooter => '頁眉頁腳';
+
+  @override
+  String get readerHeaderSectionTitle => '頁眉';
+
+  @override
+  String get readerHeaderEnabledTitle => '顯示頁眉';
+
+  @override
+  String get readerHeaderEnabledHint => '正文上方的章節、書名、時間與電量';
+
+  @override
+  String get readerHeaderChapterContent => '章節名';
+
+  @override
+  String get readerHeaderBookContent => '書名';
+
+  @override
+  String get readerHeaderTimeContent => '時間';
+
+  @override
+  String get readerHeaderBatteryContent => '電量';
+
+  @override
+  String get readerHeaderPositionLabel => '對齊';
+
+  @override
+  String get readerHeaderFontSizeLabel => '頁眉字號';
+
+  @override
+  String get readerHeaderTopBarHint => '頁眉內容僅在「閱讀資訊欄」頂部樣式下顯示';
+
+  @override
+  String get readerFooterSectionTitle => '頁腳';
+
+  @override
+  String get readerFooterEnabledTitle => '顯示頁腳';
+
+  @override
+  String get readerFooterEnabledHint => '正文下方的閱讀進度';
+
+  @override
+  String get readerFooterChapterContent => '章節進度';
+
+  @override
+  String get readerFooterPageContent => '頁碼';
+
+  @override
+  String get readerFooterPercentContent => '百分比';
+
+  @override
+  String get readerFooterRemainingContent => '剩餘頁數';
+
+  @override
+  String get readerFooterPositionLabel => '對齊';
+
+  @override
+  String get readerFooterFontSizeLabel => '頁腳字號';
+
+  @override
+  String get readerChromePositionSplit => '分散';
+
+  @override
+  String get readerChromePositionLeft => '靠左';
+
+  @override
+  String get readerChromePositionCenter => '居中';
+
+  @override
+  String get readerChromePositionRight => '靠右';
+
+  @override
+  String get readerHeaderFooterScrollHint => '頁眉頁腳只在翻頁模式顯示，上下捲動模式不顯示';
+
+  @override
+  String get readerHeaderFooterSpreadHint => '雙頁模式下頁眉頁腳按左右頁自動分配';
+
+  @override
+  String get readerHeaderFooterDone => '完成';
+
+  @override
+  String readerPagesRemaining(int count) {
+    return '剩 $count 頁';
+  }
+
+  @override
+  String get readerSettingsLiveHint => '即時生效';
 }

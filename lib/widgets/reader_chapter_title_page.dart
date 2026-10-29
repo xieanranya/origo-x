@@ -60,9 +60,10 @@ class ReaderInlineChapterTitle extends StatelessWidget {
   static TextStyle titleStyleFor(TextStyle bodyStyle) => bodyStyle.copyWith(
     // The upper bound tracks the body size so the heading never renders
     // smaller than the text it introduces at large reader font sizes.
-    fontSize: ((bodyStyle.fontSize ?? 19) * 1.45).clamp(
-      24,
-      math.max(30, bodyStyle.fontSize ?? 19),
+    // 精校基线：正文 19 时标题落到 26。
+    fontSize: ((bodyStyle.fontSize ?? 19) * 1.37).clamp(
+      24.0,
+      math.max(30.0, bodyStyle.fontSize ?? 19),
     ),
     fontWeight: FontWeight.w600,
     height: 1.35,

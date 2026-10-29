@@ -6,8 +6,8 @@ class ReaderMarginSettings {
   static const double max = 80;
   static const double horizontalMin = 0;
   static const double horizontalMax = 72;
-  static const double defaultTop = 4;
-  static const double defaultBottom = 0;
+  static const double defaultTop = 8;
+  static const double defaultBottom = 10;
   static const double legacyDefault = 28;
 
   const ReaderMarginSettings({required this.top, required this.bottom});

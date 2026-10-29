@@ -444,15 +444,67 @@ extension _NativeReaderScaffold on _NativeReaderPageState {
                                 horizontalPadding:
                                     _floatingStatusHorizontalPadding,
                               ),
-                            ReaderChromeOverlay(
-                              autoPageTurnController: _autoPageTurnController,
-                              onResumeAutoPageTurn: () =>
-                                  unawaited(_resumeAutoPageTurn()),
+                            ReaderReadingChrome(
                               palette: _readerTheme,
                               visible: _controlsVisible,
-                              title: chapter.title.isEmpty
-                                  ? widget.book.title
-                                  : chapter.title,
+                              bookTitle: widget.book.title,
+                              chapterTitle: chapter.title,
+                              pageProgress: _readerPageProgress(pages),
+                              pageLabel:
+                                  '${(_pageIndex + 1).clamp(1, math.max(1, pages.length))} / ${pages.length}',
+                              bookmarked: currentPageIsBookmarked,
+                              bookmarkBusy: _bookmarkBusy,
+                              readAloudActive: context
+                                  .select<ReaderAloudSession?, bool>(
+                                    (session) =>
+                                        session?.sourceId ==
+                                            'local:${widget.book.id}' &&
+                                        (session?.isActive ?? false),
+                                  ),
+                              onBack: () => unawaited(_exitReader()),
+                              onBookmark: () => unawaited(
+                                _toggleBookmark(chapter, bookmarkPage),
+                              ),
+                              onPreviousChapter: () => unawaited(
+                                _setChapter(_chapterIndex - 1, chapters.length),
+                              ),
+                              onNextChapter: () => unawaited(
+                                _setChapter(_chapterIndex + 1, chapters.length),
+                              ),
+                              onPageProgressChanged: (value) =>
+                                  _seekToChapterPage(
+                                    value,
+                                    pages,
+                                    bookPages,
+                                    chapters,
+                                  ),
+                              onTableOfContents: () => unawaited(
+                                _showTableOfContents(
+                                  chapters,
+                                  currentAnchorKey: currentBookmarkAnchorKey,
+                                ),
+                              ),
+                              onReadAloud: isReaderAloudPlatformSupported
+                                  ? () => unawaited(
+                                      _handleReaderAloudButtonPressed(),
+                                    )
+                                  : null,
+                              onNightMode: _showReadingSettings,
+                              onSettings: _showReadingSettings,
+                              onMore: () => unawaited(_showReaderMoreMenu()),
+                              backTooltip: MaterialLocalizations.of(
+                                context,
+                              ).backButtonTooltip,
+                              bookmarkTooltip: currentPageIsBookmarked
+                                  ? context.l10n.bookmarkRemoved
+                                  : context.l10n.readerAddBookmark,
+                              tableOfContentsTooltip:
+                                  context.l10n.readerToolbarTOC,
+                              readAloudTooltip: context.l10n.ttsReading,
+                              settingsTooltip: context.l10n.readingSettings,
+                              nightModeTooltip: context.l10n.readerThemeNight,
+                              onLocateReadAloud: () =>
+                                  unawaited(_locateReaderAloud()),
                               statusBottom: _readerSafeArea.pageNumberBottom,
                               showViewportStatus:
                                   _pageMode == NativePageMode.verticalScroll &&
@@ -476,50 +528,15 @@ extension _NativeReaderScaffold on _NativeReaderPageState {
                                     style: style,
                                     key: key,
                                   ),
-                              onBack: () => unawaited(_exitReader()),
-                              onBookmark: () => unawaited(
-                                _toggleBookmark(chapter, bookmarkPage),
-                              ),
-                              onTableOfContents: () => unawaited(
-                                _showTableOfContents(
-                                  chapters,
-                                  currentAnchorKey: currentBookmarkAnchorKey,
-                                ),
-                              ),
-                              onReadAloud: isReaderAloudPlatformSupported
-                                  ? () => unawaited(
-                                      _handleReaderAloudButtonPressed(),
-                                    )
-                                  : null,
-                              readAloudTooltip: context.l10n.ttsReading,
-                              readAloudActive: context
-                                  .select<ReaderAloudSession?, bool>(
-                                    (session) =>
-                                        session?.sourceId ==
-                                            'local:${widget.book.id}' &&
-                                        (session?.isActive ?? false),
-                                  ),
-                              onLocateReadAloud: () =>
-                                  unawaited(_locateReaderAloud()),
-                              onSettings: _showReadingSettings,
-                              backTooltip: MaterialLocalizations.of(
-                                context,
-                              ).backButtonTooltip,
-                              bookmarkTooltip: currentPageIsBookmarked
-                                  ? context.l10n.bookmarkRemoved
-                                  : context.l10n.readerAddBookmark,
-                              tableOfContentsTooltip:
-                                  context.l10n.readerToolbarTOC,
-                              settingsTooltip: context.l10n.readingSettings,
-                              bookmarked: currentPageIsBookmarked,
-                              bookmarkBusy: _bookmarkBusy,
+                              autoPageTurnController: _autoPageTurnController,
+                              onResumeAutoPageTurn: () =>
+                                  unawaited(_resumeAutoPageTurn()),
                               topKey: const ValueKey(
                                 'native-reader-top-controls',
                               ),
                               bottomKey: const ValueKey(
                                 'native-reader-bottom-controls',
                               ),
-                              statusKey: const ValueKey('native-reader-status'),
                             ),
                           ],
                         ),

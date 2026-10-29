@@ -101,8 +101,11 @@ class ReaderSettings {
   static const double defaultHorizontalMargin = 22;
   static const int defaultFirstLineIndent = 2;
   static const int defaultParagraphSpacing = 0;
-  static const String defaultThemeId = 'day';
-  static const ReaderPageMode defaultPageMode = ReaderPageMode.horizontalSlide;
+  static const String defaultThemeId = 'paper';
+  static const ReaderPageMode defaultPageMode = ReaderPageMode.coverSlide;
+  static const ReaderChapterProgressStyle defaultChapterProgressStyle =
+      ReaderChapterProgressStyle.fraction;
+  static const bool defaultChapterTitlePageEnabled = false;
   static const bool defaultTabletTwoPageEnabled = true;
 
   const ReaderSettings({
@@ -123,8 +126,8 @@ class ReaderSettings {
     this.pullBookmarkEnabled = false,
     this.tapPageAnimationEnabled = true,
     this.tabletTwoPageEnabled = defaultTabletTwoPageEnabled,
-    this.chapterTitlePageEnabled = true,
-    this.chapterProgressStyle = ReaderChapterProgressStyle.hidden,
+    this.chapterTitlePageEnabled = defaultChapterTitlePageEnabled,
+    this.chapterProgressStyle = defaultChapterProgressStyle,
     this.headerFooter = const ReaderHeaderFooterSettings(),
   });
 
@@ -322,7 +325,7 @@ class ReaderSettingsStore {
       headerFooter: headerFooter,
       chapterProgressStyle: ReaderChapterProgressStyle.values.firstWhere(
         (style) => style.name == prefs.getString(chapterProgressStyleKey),
-        orElse: () => ReaderChapterProgressStyle.hidden,
+        orElse: () => ReaderSettings.defaultChapterProgressStyle,
       ),
       fontSize: (prefs.getDouble(fontSizeKey) ?? ReaderSettings.defaultFontSize)
           .clamp(ReaderSettings.minFontSize, ReaderSettings.maxFontSize),
@@ -375,7 +378,9 @@ class ReaderSettingsStore {
           (prefs.getInt(paragraphSpacingKey) ??
                   ReaderSettings.defaultParagraphSpacing)
               .clamp(0, 2),
-      chapterTitlePageEnabled: prefs.getBool(chapterTitlePageKey) ?? true,
+      chapterTitlePageEnabled:
+          prefs.getBool(chapterTitlePageKey) ??
+          ReaderSettings.defaultChapterTitlePageEnabled,
       pullBookmarkEnabled: prefs.getBool(pullBookmarkKey) ?? false,
       tapPageAnimationEnabled: prefs.getBool(tapPageAnimationKey) ?? true,
       tabletTwoPageEnabled:

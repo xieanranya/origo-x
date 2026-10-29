@@ -332,6 +332,15 @@ extension _NativeReaderShell on _NativeReaderPageState {
     );
   }
 
+  /// 本章内阅读进度 0..1，驱动底部进度坞的滑杆与百分比。
+  double _readerPageProgress(List<_ReaderPageData> pages) {
+    if (_pageMode == NativePageMode.verticalScroll) {
+      return _verticalScrollProgress.value.clamp(0.0, 1.0);
+    }
+    if (pages.length <= 1) return 0;
+    return (_pageIndex / (pages.length - 1)).clamp(0.0, 1.0);
+  }
+
   String _readerStatus(List<_ReaderPageData> pages, int chapterCount) {
     final statusPages =
         _pageMode == NativePageMode.verticalScroll &&

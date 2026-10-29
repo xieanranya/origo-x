@@ -147,7 +147,7 @@ class ReaderThemes {
   /// 「跟随系统」在白天 / 夜晚分别使用哪个主题（用户可长按卡片修改）。
   static const String _prefSystemDayKey = 'reader_system_day_theme_v1';
   static const String _prefSystemNightKey = 'reader_system_night_theme_v1';
-  static String _systemDayThemeId = day.id;
+  static String _systemDayThemeId = paper.id;
   static String _systemNightThemeId = pureBlack.id;
 
   static String get systemDayThemeId => _systemDayThemeId;
@@ -248,7 +248,7 @@ class ReaderThemes {
   static Future<void> _loadSystemPair() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _systemDayThemeId = prefs.getString(_prefSystemDayKey) ?? day.id;
+      _systemDayThemeId = prefs.getString(_prefSystemDayKey) ?? paper.id;
       _systemNightThemeId =
           prefs.getString(_prefSystemNightKey) ?? pureBlack.id;
     } catch (error) {
@@ -399,6 +399,23 @@ class ReaderThemes {
     backgroundImagePath: 'assets/reader_themes/xian_tan_dark.png',
     backgroundImageOpacity: 1.0,
   );
+
+  /// 纸黄（精校默认）：暖白纸底 + 深墨字 + 赭石强调色。
+  static const paper = ReaderThemePalette(
+    id: 'paper',
+    brightness: Brightness.light,
+    background: Color(0xFFF7F3EA),
+    text: Color(0xFF2B2A26),
+    secondaryText: Color(0xFF9A9184),
+    surface: Color(0xFFFFFDF8),
+    controlBar: Color(0xFFF2EDE2),
+    controlFill: Color(0xFFE9E3D6),
+    accent: Color(0xFF8A5A3B),
+    onAccent: Color(0xFFFFFDF8),
+    border: Color(0xFFD8CFC0),
+    shadow: Color(0xFF6A5540),
+  );
+
   static const day = ReaderThemePalette(
     id: 'day',
     brightness: Brightness.light,
@@ -493,6 +510,7 @@ class ReaderThemes {
   /// 内置的具体主题（不含「跟随系统」本身），供主题顺序与解析使用。
   static const List<ReaderThemePalette> _concreteBuiltins =
       <ReaderThemePalette>[
+        paper,
         day,
         green,
         parchment,
