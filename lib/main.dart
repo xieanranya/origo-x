@@ -11,6 +11,7 @@ import 'services/reader_aloud_session.dart';
 import 'services/tts_service.dart';
 import 'utils/reader_themes.dart';
 
+// 2.8.0：外壳按开源阅读重构后重新触发双端构建。
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 必须在读取主题配色 / AppSettingsNotifier 之前完成：覆盖安装时把旧的
