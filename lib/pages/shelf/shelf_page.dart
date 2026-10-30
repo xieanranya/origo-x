@@ -1,8 +1,9 @@
-// 文件说明：新版书架页（封面网格）。替代原「工具感」列表式书架，漫画也并入这里。
-// 数据全部复用现有 BookDao / 书源收藏，不改内核：
-//   - 本地书籍：BookDao().getAllBooks()、getRecentlyReadBooks(limit: 1)
-//   - 书源书籍：SourceShelfStore（本层轻量存储）
-// 排序方式沿用 ShelfSort 枚举，偏好键沿用 shelf_sort_mode。
+// 文件说明：书架页按「开源阅读（Legado iOS）」重做：
+//   大标题「我的书架」+ 工具栏（搜索 / 导入 / 更多）+ 分组筛选 chips
+//   + 封面列表行（54×74 封面 + 红色未读角标 + 书名 / 作者 / 已读进度）。
+// 数据与内核全部复用：BookDao / SourceShelfStore / BookImportService，
+// 漫画（cbz/zip/rar/7z）与 PDF 的打开、导入逻辑保持不动。
+// 视图可在 列表（Legado iOS 默认）与 封面网格 之间切换，偏好持久化。
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -29,7 +30,11 @@ import '../reader/native/native_reader_page.dart';
 import '../shell/app_palette.dart';
 import '../sources/book_source_page.dart';
 import 'widgets/book_cover_card.dart';
-import 'widgets/continue_reading_card.dart';
+import 'widgets/cover_art.dart';
+
+enum _ShelfViewMode { list, grid }
+
+enum _ShelfFilter { all, local, source }
 
 class ShelfPage extends StatefulWidget {
   const ShelfPage({super.key});
@@ -44,12 +49,15 @@ class ShelfPageState extends State<ShelfPage> {
 
   List<Book> _books = const <Book>[];
   List<SourceShelfBook> _sourceBooks = const <SourceShelfBook>[];
-  Book? _recent;
   bool _loading = true;
   bool _importing = false;
   ShelfSort _sort = ShelfSort.recentRead;
+  _ShelfViewMode _viewMode = _ShelfViewMode.list;
+  _ShelfFilter _filter = _ShelfFilter.all;
+  String _query = '';
 
   static const String _sortKey = 'shelf_sort_mode';
+  static const String _viewModeKey = 'shelf_view_mode_v2';
 
   @override
   void initState() {
@@ -66,25 +74,19 @@ class ShelfPageState extends State<ShelfPage> {
 
   Future<void> _load() async {
     final sort = await _loadSort();
+    final viewMode = await _loadViewMode();
     List<Book> books = const <Book>[];
-    Book? recent;
     try {
       books = await _dao.getAllBooks();
     } catch (error) {
       debugPrint('读取书架失败：$error');
     }
-    try {
-      final recentBooks = await _dao.getRecentlyReadBooks(limit: 1);
-      if (recentBooks.isNotEmpty) recent = recentBooks.first;
-    } catch (_) {
-      // 没有最近阅读不影响书架。
-    }
     final sources = await _sourceStore.load();
     if (!mounted) return;
     setState(() {
       _sort = sort;
+      _viewMode = viewMode;
       _books = _sorted(books, sort);
-      _recent = recent;
       _sourceBooks = sources;
       _loading = false;
     });
@@ -106,6 +108,27 @@ class ShelfPageState extends State<ShelfPage> {
       );
     } catch (_) {
       return ShelfSort.recentRead;
+    }
+  }
+
+  Future<_ShelfViewMode> _loadViewMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_viewModeKey) == 'grid'
+          ? _ShelfViewMode.grid
+          : _ShelfViewMode.list;
+    } catch (_) {
+      return _ShelfViewMode.list;
+    }
+  }
+
+  Future<void> _saveViewMode(_ShelfViewMode mode) async {
+    setState(() => _viewMode = mode);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_viewModeKey, mode.name);
+    } catch (_) {
+      // 偏好存不上不影响本次显示。
     }
   }
 
@@ -137,6 +160,34 @@ class ShelfPageState extends State<ShelfPage> {
         list.sort((a, b) => b.progress.compareTo(a.progress));
     }
     return list;
+  }
+
+  List<Book> get _visibleBooks {
+    var books = _books;
+    if (_query.isNotEmpty) {
+      books = books
+          .where(
+            (book) =>
+                book.title.toLowerCase().contains(_query) ||
+                book.author.toLowerCase().contains(_query),
+          )
+          .toList(growable: false);
+    }
+    return books;
+  }
+
+  List<SourceShelfBook> get _visibleSourceBooks {
+    var sources = _sourceBooks;
+    if (_query.isNotEmpty) {
+      sources = sources
+          .where(
+            (book) =>
+                book.title.toLowerCase().contains(_query) ||
+                book.author.toLowerCase().contains(_query),
+          )
+          .toList(growable: false);
+    }
+    return sources;
   }
 
   // ---------------------------------------------------------------- 打开
@@ -233,9 +284,7 @@ class ShelfPageState extends State<ShelfPage> {
             .toLowerCase();
         if (ComicArchiveService.isComicArchive(extension)) {
           try {
-            final book = await ComicArchiveService.importComic(
-              File(localPath),
-            );
+            final book = await ComicArchiveService.importComic(File(localPath));
             if (book == null) {
               skipped++;
             } else {
@@ -342,7 +391,11 @@ class ShelfPageState extends State<ShelfPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.info_outline),
-              title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                book.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
                 '${book.format.toUpperCase()} · 进度 ${(book.progress * 100).round()}%',
               ),
@@ -379,7 +432,11 @@ class ShelfPageState extends State<ShelfPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.public),
-              title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                book.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text('来源：${book.sourceName}'),
             ),
             const Divider(height: 1),
@@ -389,6 +446,7 @@ class ShelfPageState extends State<ShelfPage> {
               onTap: () {
                 Navigator.pop(sheetContext);
                 _sourceStore.remove(book.id);
+                _load();
               },
             ),
           ],
@@ -428,224 +486,6 @@ class ShelfPageState extends State<ShelfPage> {
       SnackBar(content: Text(text), duration: const Duration(seconds: 2)),
     );
   }
-
-  // ---------------------------------------------------------------- 构建
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Scaffold(
-      backgroundColor: palette.bg,
-      body: SafeArea(
-        bottom: false,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(child: _buildHead(palette)),
-                    if (_continueBook != null)
-                      SliverToBoxAdapter(
-                        child: ContinueReadingCard(
-                          title: _continueBook!.title,
-                          subtitle:
-                              '已读 ${(_continueBook!.progress * 100).round()}% · 上次读到这里',
-                          progress: _continueBook!.progress,
-                          coverPath: _continueBook!.coverImagePath,
-                          onTap: () => _open(_continueBook!),
-                        ),
-                      ),
-                    SliverToBoxAdapter(child: _buildSectionLabel(palette)),
-                    if (_books.isEmpty && _sourceBooks.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _buildEmpty(palette),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                        sliver: SliverGrid(
-                          gridDelegate: _gridDelegate(context),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildCard(index),
-                            childCount: _books.length + _sourceBooks.length,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
-
-  /// 「继续阅读」只在 0 < 进度 < 1 时出现。
-  Book? get _continueBook {
-    final book = _recent;
-    if (book == null) return null;
-    final progress = book.progress;
-    if (progress <= 0.001 || progress >= 0.999) return null;
-    return book;
-  }
-
-  SliverGridDelegate _gridDelegate(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width > 900 ? 6 : (width > 600 ? 4 : 3);
-    return SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: columns,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 18,
-      childAspectRatio: 0.56,
-    );
-  }
-
-  Widget _buildHead(AppPalette palette) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text('书架', style: AppText.pageTitle.copyWith(color: palette.text)),
-          const Spacer(),
-          _headIcon(
-            icon: Icons.sort_rounded,
-            palette: palette,
-            onTap: _pickSort,
-          ),
-          _headIcon(
-            icon: Icons.add_rounded,
-            palette: palette,
-            onTap: _importing ? null : _import,
-          ),
-          _headIcon(
-            icon: Icons.more_vert_rounded,
-            palette: palette,
-            onTap: _showMore,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headIcon({
-    required IconData icon,
-    required AppPalette palette,
-    VoidCallback? onTap,
-  }) {
-    return IconButton(
-      onPressed: onTap,
-      iconSize: 24,
-      color: palette.text,
-      splashRadius: 22,
-      icon: Icon(icon),
-    );
-  }
-
-  Widget _buildSectionLabel(AppPalette palette) {
-    final count = _books.length + _sourceBooks.length;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
-      child: Row(
-        children: [
-          Text(
-            '全部书籍 · $count 本',
-            style: AppText.groupLabel.copyWith(color: palette.text3),
-          ),
-          const Spacer(),
-          Text(
-            _sortLabel(_sort),
-            style: AppText.groupLabel.copyWith(color: palette.accent),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard(int index) {
-    if (index < _books.length) {
-      final book = _books[index];
-      return BookCoverCard(
-        title: book.title,
-        author: book.author,
-        progress: book.progress,
-        coverPath: book.coverImagePath,
-        showUnreadDot: book.lastReadTime == null && book.progress <= 0,
-        onTap: () => _open(book),
-        onLongPress: () => _showBookActions(book),
-      );
-    }
-    final source = _sourceBooks[index - _books.length];
-    return BookCoverCard(
-      title: source.title,
-      author: source.author.isEmpty ? source.sourceName : source.author,
-      badgeText: '书源',
-      onTap: () => _openSourceBook(source),
-      onLongPress: () => _showSourceBookActions(source),
-    );
-  }
-
-  Widget _buildEmpty(AppPalette palette) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.library_books_outlined,
-              size: 44,
-              color: palette.text3.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '书架还是空的',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: palette.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '导入自己的 TXT 或 EPUB，开始阅读',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: _importing ? null : _import,
-              style: FilledButton.styleFrom(
-                backgroundColor: palette.accent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                '导入书籍',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------- 小菜单
-
-  static String _sortLabel(ShelfSort sort) => switch (sort) {
-    ShelfSort.recentRead => '最近阅读',
-    ShelfSort.importDate => '导入时间',
-    ShelfSort.title => '书名',
-    ShelfSort.progress => '进度',
-  };
 
   Future<void> _pickSort() async {
     final picked = await showModalBottomSheet<ShelfSort>(
@@ -692,6 +532,67 @@ class ShelfPageState extends State<ShelfPage> {
     if (picked != null) await _saveSort(picked);
   }
 
+  Future<void> _showSearch() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final palette = AppPalette.of(sheetContext);
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    autofocus: true,
+                    controller: TextEditingController(text: _query),
+                    onChanged: (value) {
+                      _query = value.trim().toLowerCase();
+                      if (mounted) setState(() {});
+                    },
+                    style: TextStyle(fontSize: 15, color: palette.text),
+                    decoration: InputDecoration(
+                      hintText: '搜书名 / 作者',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      filled: true,
+                      fillColor: palette.fill,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: palette.accent,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('完成'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      if (_query.isEmpty) _query = '';
+    });
+  }
+
   Future<void> _showMore() async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -699,6 +600,22 @@ class ShelfPageState extends State<ShelfPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: Icon(
+                _viewMode == _ShelfViewMode.list
+                    ? Icons.grid_view_outlined
+                    : Icons.view_list_outlined,
+              ),
+              title: Text(
+                _viewMode == _ShelfViewMode.list ? '切换为封面网格' : '切换为列表',
+              ),
+              onTap: () => Navigator.pop(sheetContext, 'view'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sort_rounded),
+              title: const Text('排序方式'),
+              onTap: () => Navigator.pop(sheetContext, 'sort'),
+            ),
             ListTile(
               leading: const Icon(Icons.insights_outlined),
               title: const Text('阅读统计'),
@@ -719,17 +636,556 @@ class ShelfPageState extends State<ShelfPage> {
       ),
     );
     if (!mounted || action == null) return;
-    if (action == 'stats') {
-      await _showStats();
-    } else if (action == 'theme') {
-      context.read<ThemeNotifier>().toggleTheme(
-        Theme.of(context).brightness != Brightness.dark,
-      );
-    } else if (action == 'sources') {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => const BookSourcePage()),
-      );
-      await _load();
+    switch (action) {
+      case 'view':
+        await _saveViewMode(
+          _viewMode == _ShelfViewMode.list
+              ? _ShelfViewMode.grid
+              : _ShelfViewMode.list,
+        );
+      case 'sort':
+        await _pickSort();
+      case 'stats':
+        await _showStats();
+      case 'theme':
+        context.read<ThemeNotifier>().toggleTheme(
+          Theme.of(context).brightness != Brightness.dark,
+        );
+      case 'sources':
+        await Navigator.of(
+          context,
+        ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
+        await _load();
     }
+  }
+
+  // ---------------------------------------------------------------- 构建
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Scaffold(
+      backgroundColor: palette.bg,
+      body: SafeArea(
+        bottom: false,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildHead(palette)),
+                    SliverToBoxAdapter(child: _buildFilterChips(palette)),
+                    if (_isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmpty(palette),
+                      )
+                    else if (_viewMode == _ShelfViewMode.list)
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildGroupedCard(palette),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                        sliver: SliverGrid(
+                          gridDelegate: _gridDelegate(context),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => _buildGridCard(index),
+                            childCount: _visibleCount,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  bool get _isEmpty => _visibleBooks.isEmpty && _visibleSourceBooks.isEmpty;
+
+  int get _visibleCount => _visibleBooks.length + _visibleSourceBooks.length;
+
+  Widget _buildHead(AppPalette palette) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 8, 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text('我的书架', style: AppText.pageTitle.copyWith(color: palette.text)),
+          const Spacer(),
+          _headIcon(
+            icon: Icons.search_rounded,
+            palette: palette,
+            tooltip: '搜索书架',
+            onTap: _showSearch,
+          ),
+          _headIcon(
+            icon: Icons.add_rounded,
+            palette: palette,
+            tooltip: '导入本地书籍',
+            onTap: _importing ? null : _import,
+          ),
+          _headIcon(
+            icon: Icons.more_vert_rounded,
+            palette: palette,
+            tooltip: '更多',
+            onTap: _showMore,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headIcon({
+    required IconData icon,
+    required AppPalette palette,
+    required String tooltip,
+    VoidCallback? onTap,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      tooltip: tooltip,
+      iconSize: 23,
+      color: palette.text,
+      splashRadius: 22,
+      icon: Icon(icon),
+    );
+  }
+
+  Widget _buildFilterChips(AppPalette palette) {
+    Widget chip(String label, _ShelfFilter value) {
+      final selected = _filter == value;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: GestureDetector(
+          onTap: () => setState(() => _filter = value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? palette.accent : palette.fill,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? Colors.white : palette.text2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        children: [
+          chip('全部', _ShelfFilter.all),
+          chip('本地书籍', _ShelfFilter.local),
+          chip('书源书籍', _ShelfFilter.source),
+          if (_query.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: GestureDetector(
+                onTap: () => setState(() => _query = ''),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.accentSoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '“$_query”',
+                        style: TextStyle(fontSize: 12.5, color: palette.accent),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.close, size: 13, color: palette.accent),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// iOS insetGrouped 风格：整组白卡 + 行分隔线（左侧让出封面宽度）。
+  Widget _buildGroupedCard(AppPalette palette) {
+    final books = _visibleBooks;
+    final sources = _visibleSourceBooks;
+    final rows = <Widget>[];
+
+    void addBookRow(Book book) {
+      if (rows.isNotEmpty) {
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 82),
+            child: Divider(height: 1, thickness: 0.6, color: palette.line),
+          ),
+        );
+      }
+      rows.add(
+        _LocalBookRow(
+          book: book,
+          onTap: () => _open(book),
+          onLongPress: () => _showBookActions(book),
+        ),
+      );
+    }
+
+    void addSourceRow(SourceShelfBook book) {
+      if (rows.isNotEmpty) {
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 82),
+            child: Divider(height: 1, thickness: 0.6, color: palette.line),
+          ),
+        );
+      }
+      rows.add(
+        _SourceBookRow(
+          book: book,
+          onTap: () => _openSourceBook(book),
+          onLongPress: () => _showSourceBookActions(book),
+        ),
+      );
+    }
+
+    switch (_filter) {
+      case _ShelfFilter.all:
+        for (final book in books) {
+          addBookRow(book);
+        }
+        for (final source in sources) {
+          addSourceRow(source);
+        }
+      case _ShelfFilter.local:
+        for (final book in books) {
+          addBookRow(book);
+        }
+      case _ShelfFilter.source:
+        for (final source in sources) {
+          addSourceRow(source);
+        }
+    }
+
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _buildGridCard(int index) {
+    if (index < _visibleBooks.length) {
+      final book = _visibleBooks[index];
+      return BookCoverCard(
+        title: book.title,
+        author: book.author,
+        progress: book.progress,
+        coverPath: book.coverImagePath,
+        showUnreadDot: book.lastReadTime == null && book.progress <= 0,
+        onTap: () => _open(book),
+        onLongPress: () => _showBookActions(book),
+      );
+    }
+    final source = _visibleSourceBooks[index - _visibleBooks.length];
+    return BookCoverCard(
+      title: source.title,
+      author: source.author.isEmpty ? source.sourceName : source.author,
+      badgeText: '书源',
+      onTap: () => _openSourceBook(source),
+      onLongPress: () => _showSourceBookActions(source),
+    );
+  }
+
+  SliverGridDelegate _gridDelegate(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = width > 900 ? 6 : (width > 600 ? 4 : 3);
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 18,
+      childAspectRatio: 0.56,
+    );
+  }
+
+  Widget _buildEmpty(AppPalette palette) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.auto_stories_outlined,
+              size: 62,
+              color: palette.text3.withValues(alpha: 0.55),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '书架空空如也',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: palette.text,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '点击右上角 + 导入本地 TXT / EPUB，\n或到「发现」用书源搜索网络小说',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _importing ? null : _import,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text(
+                '导入书籍',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: palette.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _sortLabel(ShelfSort sort) => switch (sort) {
+    ShelfSort.recentRead => '最近阅读',
+    ShelfSort.importDate => '导入时间',
+    ShelfSort.title => '书名',
+    ShelfSort.progress => '进度',
+  };
+}
+
+// ---------------------------------------------------------------- 列表行
+
+/// 本地书籍行：54×74 封面 + 未读红角标 + 书名 / 作者 / 已读行。
+class _LocalBookRow extends StatelessWidget {
+  const _LocalBookRow({
+    required this.book,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final Book book;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final neverRead = book.lastReadTime == null && book.progress <= 0;
+    final readLabel = book.totalPages > 1
+        ? '已读: 第 ${book.currentPage + 1} / ${book.totalPages} 页'
+        : '已读: ${(book.progress * 100).round()}%';
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 54,
+              height: 74,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CoverArt(
+                      title: book.title,
+                      path: book.coverImagePath,
+                      radius: 6,
+                      glyphSize: 22,
+                    ),
+                  ),
+                  if (neverRead)
+                    Positioned(
+                      top: -5,
+                      right: -5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF3B30),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: palette.surface,
+                            width: 1.4,
+                          ),
+                        ),
+                        child: const Text(
+                          '未读',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    book.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  ),
+                  if (book.author.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      book.author,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: palette.text3),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    readLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: neverRead ? palette.text3 : palette.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: palette.text3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 书源书籍行。
+class _SourceBookRow extends StatelessWidget {
+  const _SourceBookRow({
+    required this.book,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final SourceShelfBook book;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 54,
+              height: 74,
+              child: CoverArt(title: book.title, radius: 6, glyphSize: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    book.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    book.author.isEmpty ? '佚名' : book.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: palette.text3),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.fill,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      '书源 · ${book.sourceName}',
+                      style: TextStyle(fontSize: 10.5, color: palette.text2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: palette.text3),
+          ],
+        ),
+      ),
+    );
   }
 }
