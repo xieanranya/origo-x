@@ -277,6 +277,7 @@
     "lib/widgets/reader_theme_background_image.dart",
     "lib/widgets/reader_theme_background_image_io.dart",
     "lib/widgets/reader_theme_background_image_web.dart",
+    "lib/widgets/reader_thin_slider.dart",
     "lib/widgets/reader_top_information_bar.dart",
     "lib/widgets/reader_vertical_paging_surface.dart",
     "lib/widgets/side_toast.dart",

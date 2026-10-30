@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xxread/utils/reader_themes.dart';
 import 'package:xxread/widgets/reader_control_chrome.dart';
 import 'package:xxread/widgets/reader_reading_chrome.dart';
+import 'package:xxread/widgets/reader_thin_slider.dart';
 
 void main() {
   late int backTaps;
@@ -98,14 +99,8 @@ void main() {
 
     expect(find.byType(ReaderControlIconButton), findsNothing);
     expect(find.byType(ReaderChromeOverlay), findsNothing);
-    // 圆角 20 的矩形坞，而不是 999 药丸。
-    final bars = tester.widgetList<ReaderControlBar>(
-      find.byType(ReaderControlBar),
-    );
-    expect(bars, isNotEmpty);
-    for (final bar in bars) {
-      expect(bar.borderRadius, BorderRadius.circular(20));
-    }
+    // 新面板不再复用旧的玻璃渐变条（ReaderControlBar）。
+    expect(find.byType(ReaderControlBar), findsNothing);
   });
 
   testWidgets('滑杆与章节按钮回调正确', (tester) async {
@@ -113,10 +108,10 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<Slider>(
+        .widget<ReaderThinSlider>(
           find.byKey(const ValueKey('reader-page-progress-slider')),
         )
-        .onChanged!(0.75);
+        .onChanged(0.75);
     await tester.pump();
     expect(seeks, <double>[0.75]);
 

@@ -12,7 +12,7 @@ import '../core/reader/reader_custom_theme.dart';
 import '../core/reader/reader_system_ui.dart';
 import '../utils/reader_themes.dart';
 import '../utils/localization_extension.dart';
-import 'reader_theme_background.dart';
+import 'reader_thin_slider.dart';
 import 'reader_chapter_progress_setting_tile.dart';
 
 @immutable
@@ -409,6 +409,7 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ReaderThemeStrip(
+            chromePalette: palette,
             selectedThemeId: _themeId,
             labelFor: widget.themeLabelFor,
             onSelected: (themeId) {
@@ -959,8 +960,8 @@ class _ReaderSettingsSheetState extends State<ReaderSettingsSheet> {
       required List<Widget> children,
     }) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withValues(
             alpha: 0.28,
@@ -1592,10 +1593,8 @@ class ReaderSettingsSheetFrame extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
-            ),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * maxHeightFactor,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1643,6 +1642,7 @@ class ReaderSettingsDragHandle extends StatelessWidget {
 class ReaderThemeStrip extends StatefulWidget {
   const ReaderThemeStrip({
     super.key,
+    required this.chromePalette,
     required this.selectedThemeId,
     required this.labelFor,
     required this.onSelected,
@@ -1654,6 +1654,8 @@ class ReaderThemeStrip extends StatefulWidget {
     this.spacing = 8,
   });
 
+  /// 面板自身的配色，用于卡片底色 / 名称 / 描边。
+  final ReaderThemePalette chromePalette;
   final String selectedThemeId;
   final String Function(String themeId) labelFor;
   final ValueChanged<String> onSelected;
@@ -1826,6 +1828,7 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
                   : customTheme.name.trim();
               return _ReaderThemeCard(
                 key: ValueKey('reader-theme-${palette.id}'),
+                chromePalette: widget.chromePalette,
                 width: widget.cardWidth,
                 palette: palette,
                 label: label,
@@ -1866,6 +1869,7 @@ class _ReaderThemeCard extends StatelessWidget {
   const _ReaderThemeCard({
     super.key,
     this.width = 64,
+    required this.chromePalette,
     required this.palette,
     required this.label,
     required this.selected,
@@ -1875,6 +1879,9 @@ class _ReaderThemeCard extends StatelessWidget {
   });
 
   final double width;
+
+  /// 面板配色：卡片底色、名称与描边来自它，只有色块展示主题本身。
+  final ReaderThemePalette chromePalette;
   final ReaderThemePalette palette;
   final String label;
   final bool selected;
@@ -1884,7 +1891,7 @@ class _ReaderThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardRadius = BorderRadius.circular(14);
+    final radius = BorderRadius.circular(14);
     return SizedBox(
       width: width,
       child: Semantics(
@@ -1894,98 +1901,105 @@ class _ReaderThemeCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          borderRadius: cardRadius,
+          borderRadius: radius,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
-            clipBehavior: Clip.antiAlias,
+            padding: EdgeInsets.all(selected ? 5 : 6),
             decoration: BoxDecoration(
-              borderRadius: cardRadius,
+              color: chromePalette.controlBar,
+              borderRadius: radius,
+              border: Border.all(
+                color: selected
+                    ? chromePalette.accent
+                    : chromePalette.text.withValues(alpha: 0.09),
+                width: selected ? 2 : 1,
+              ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: palette.shadow.withValues(alpha: 0.16),
-                        blurRadius: 10,
+                        color: chromePalette.accent.withValues(alpha: 0.11),
+                        blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ]
                   : null,
             ),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: cardRadius,
-              border: Border.all(
-                color: selected ? palette.accent : palette.border,
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: ReaderThemeBackground(
-              palette: palette,
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 7),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Spacer(),
-                        Text(
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: palette.background,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                            color: palette.text.withValues(alpha: 0.07),
+                          ),
+                        ),
+                        child: Text(
                           'Aa',
                           style: TextStyle(
-                            color: palette.text,
+                            inherit: false,
                             fontSize: 19,
                             height: 1,
                             fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
                             color: palette.text,
-                            fontSize: 9.5,
-                            height: 1.1,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 5,
-                    left: 6,
-                    child: Icon(
-                      icon,
-                      size: 11,
-                      color: palette.secondaryText.withValues(alpha: 0.75),
-                    ),
-                  ),
-                  if (selected)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: palette.accent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: palette.onAccent.withValues(alpha: 0.7),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.check_rounded,
-                          size: 11,
-                          color: palette.onAccent,
                         ),
                       ),
                     ),
-                ],
-              ),
+                    const SizedBox(height: 5),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      textAlign: TextAlign.left,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        inherit: false,
+                        fontSize: 9.5,
+                        height: 1.1,
+                        fontWeight: FontWeight.w600,
+                        color: chromePalette.text,
+                      ),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: 1,
+                  right: 1,
+                  child: Icon(
+                    icon,
+                    size: 9,
+                    color: palette.secondaryText.withValues(alpha: 0.55),
+                  ),
+                ),
+                if (selected)
+                  Positioned(
+                    top: -1,
+                    right: -1,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: chromePalette.accent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: chromePalette.surface,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 9,
+                        color: chromePalette.onAccent,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -2291,6 +2305,7 @@ class ReaderSettingSlider extends StatelessWidget {
     required this.divisions,
     required this.onChanged,
     this.onChangeEnd,
+    this.bottomSpacing = 12,
   });
 
   final String label;
@@ -2301,66 +2316,55 @@ class ReaderSettingSlider extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
   final ValueChanged<double>? onChangeEnd;
+  final double bottomSpacing;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final ratio = max == min ? 0.0 : ((value - min) / (max - min));
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.2,
+                    color: colors.onSurface,
+                  ),
                 ),
               ),
-              Container(
-                constraints: const BoxConstraints(minWidth: 44),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  valueLabel,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colors.onPrimaryContainer,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    fontWeight: FontWeight.w700,
-                  ),
+              Text(
+                valueLabel,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  height: 1.2,
+                  color: colors.onSurfaceVariant,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          SliderTheme(
-            data: Theme.of(context).sliderTheme.copyWith(
-              trackHeight: 4,
-              activeTrackColor: colors.primary,
-              inactiveTrackColor: colors.outlineVariant,
-              thumbColor: colors.primary,
-              overlayColor: colors.primary.withValues(alpha: 0.12),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-              showValueIndicator: ShowValueIndicator.never,
-            ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-              onChangeEnd: onChangeEnd,
-            ),
+          ReaderThinSlider(
+            value: ratio.clamp(0.0, 1.0).toDouble(),
+            onChanged: (next) => onChanged(min + (max - min) * next),
+            onChangeEnd: onChangeEnd == null
+                ? null
+                : (next) => onChangeEnd!(min + (max - min) * next),
+            activeColor: colors.primary,
+            inactiveColor: colors.surfaceContainerHighest,
+            thumbFill: colors.surface,
+            thumbBorder: colors.primary,
+            height: 20,
+            semanticLabel: label,
           ),
         ],
       ),
@@ -2430,17 +2434,21 @@ class _SheetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.28,
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: colors.surfaceContainerHighest,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.09)),
         ),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
