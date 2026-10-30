@@ -40,9 +40,10 @@ void main() {
 
   test('partial or broken json falls back to defaults', () {
     const defaults = ReaderHeaderFooterSettings();
-    final restored = ReaderHeaderFooterSettings.fromJson(
-      <String, Object?>{'headerFontSize': 'bad', 'footerPosition': 42},
-    );
+    final restored = ReaderHeaderFooterSettings.fromJson(<String, Object?>{
+      'headerFontSize': 'bad',
+      'footerPosition': 42,
+    });
     expect(restored.headerFontSize, defaults.headerFontSize);
     expect(restored.footerPosition, defaults.footerPosition);
   });

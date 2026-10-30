@@ -334,8 +334,7 @@ extension _NativeReaderRendering on _NativeReaderPageState {
       horizontalPadding: math.max(14, _horizontalMargin),
       pageNumberHorizontalPadding: math.max(24, _horizontalMargin),
       showTopInformation:
-          _topBarStyle == ReaderTopBarStyle.reader &&
-          _headerFooter.showsHeader,
+          _topBarStyle == ReaderTopBarStyle.reader && _headerFooter.showsHeader,
       showFloatingStatus: _showLeafFloatingStatus,
       floatingStatusHorizontalPadding: _floatingStatusHorizontalPadding,
       topInformationLayout: topInformationLayout,

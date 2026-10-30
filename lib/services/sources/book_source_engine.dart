@@ -46,9 +46,12 @@ class BookSourceEngine {
             'Accept-Language': 'zh-CN,zh;q=0.9',
           },
         )
-        .timeout(_timeout, onTimeout: () {
-          throw BookSourceException('请求超时：$url');
-        });
+        .timeout(
+          _timeout,
+          onTimeout: () {
+            throw BookSourceException('请求超时：$url');
+          },
+        );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw BookSourceException('请求失败 ${response.statusCode}：$url');
     }
@@ -156,9 +159,7 @@ class BookSourceEngine {
       final title = _extract(item, source.tocName);
       final link = _extract(item, source.tocLink);
       if (title.isEmpty || link.isEmpty) continue;
-      chapters.add(
-        SourceChapter(title: title, url: _absolute(bookUrl, link)),
-      );
+      chapters.add(SourceChapter(title: title, url: _absolute(bookUrl, link)));
     }
     return chapters;
   }

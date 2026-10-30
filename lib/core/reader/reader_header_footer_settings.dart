@@ -192,10 +192,7 @@ class ReaderHeaderFooterSettings {
         'headerShowBattery',
         defaults.headerShowBattery,
       ),
-      headerPosition: readPosition(
-        'headerPosition',
-        defaults.headerPosition,
-      ),
+      headerPosition: readPosition('headerPosition', defaults.headerPosition),
       headerFontSize: readSize('headerFontSize', defaults.headerFontSize),
       footerEnabled: readBool('footerEnabled', defaults.footerEnabled),
       footerShowChapterProgress: readBool(
@@ -211,10 +208,7 @@ class ReaderHeaderFooterSettings {
         'footerShowRemaining',
         defaults.footerShowRemaining,
       ),
-      footerPosition: readPosition(
-        'footerPosition',
-        defaults.footerPosition,
-      ),
+      footerPosition: readPosition('footerPosition', defaults.footerPosition),
       footerFontSize: readSize('footerFontSize', defaults.footerFontSize),
     );
   }

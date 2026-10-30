@@ -267,11 +267,12 @@ extension _NativeReaderConfiguration on _NativeReaderPageState {
   /// 没有状态栏 inset（隐藏后归零）时补足最小高度，避免正文顶进时间与
   /// 电量。其余样式顶部只避开状态栏本身。
   double _topChromeReserveFor(ReaderTopBarStyle style) => switch (style) {
-    ReaderTopBarStyle.reader => _pageMode == NativePageMode.verticalScroll
-        ? ReaderSafeAreaMetrics.readerTopBarReserve
-        : _headerFooter.showsHeader
-        ? _headerFooter.headerHeight + ReaderSafeAreaMetrics.readerTopBarGap
-        : 0,
+    ReaderTopBarStyle.reader =>
+      _pageMode == NativePageMode.verticalScroll
+          ? ReaderSafeAreaMetrics.readerTopBarReserve
+          : _headerFooter.showsHeader
+          ? _headerFooter.headerHeight + ReaderSafeAreaMetrics.readerTopBarGap
+          : 0,
     ReaderTopBarStyle.floating => math.max(
       0,
       ReaderSafeAreaMetrics.floatingStatusMinHeight -

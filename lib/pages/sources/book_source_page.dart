@@ -129,7 +129,9 @@ class _BookSourcePageState extends State<BookSourcePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F7F8);
+    final cardColor = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFF7F7F8);
     final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
 
     return Scaffold(
@@ -152,21 +154,24 @@ class _BookSourcePageState extends State<BookSourcePage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.travel_explore,
-                      size: 44,
-                      color: subColor,
-                    ),
+                    Icon(Icons.travel_explore, size: 44, color: subColor),
                     const SizedBox(height: 14),
                     const Text(
                       '还没有书源',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '书源是一份 JSON 规则，用来告诉程序某个站点的\n搜索、目录、正文怎么解析。\n点右上角导入，或粘贴别人的规则。',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12.5, height: 1.7, color: subColor),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.7,
+                        color: subColor,
+                      ),
                     ),
                     const SizedBox(height: 18),
                     FilledButton.icon(
@@ -438,10 +443,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                           );
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => SourceTocPage(
-                                source: source,
-                                result: item,
-                              ),
+                              builder: (_) =>
+                                  SourceTocPage(source: source, result: item),
                             ),
                           );
                         },
@@ -610,7 +613,10 @@ class _SourceReaderPageState extends State<SourceReaderPage> {
       _scrollController.jumpTo(0);
     }
     try {
-      final text = await _engine.content(widget.source, widget.chapters[index].url);
+      final text = await _engine.content(
+        widget.source,
+        widget.chapters[index].url,
+      );
       if (!mounted) return;
       setState(() {
         _content = text;
@@ -659,7 +665,11 @@ class _SourceReaderPageState extends State<SourceReaderPage> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: subColor, height: 1.7),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: subColor,
+                        height: 1.7,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     FilledButton(
@@ -679,7 +689,9 @@ class _SourceReaderPageState extends State<SourceReaderPage> {
                   style: TextStyle(
                     fontSize: 17,
                     height: 1.95,
-                    color: isDark ? const Color(0xFFCFCABF) : const Color(0xFF23201A),
+                    color: isDark
+                        ? const Color(0xFFCFCABF)
+                        : const Color(0xFF23201A),
                   ),
                 ),
                 const SizedBox(height: 28),

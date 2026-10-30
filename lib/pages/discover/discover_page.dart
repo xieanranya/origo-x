@@ -128,9 +128,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   Future<void> _openSources() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const BookSourcePage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
     await _loadSources();
     if (_keyword.text.trim().isNotEmpty) await _search();
   }
@@ -243,7 +243,12 @@ class _DiscoverPageState extends State<DiscoverPage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
-          _chip(palette, label: '全部', selected: _activeSourceId == null, id: null),
+          _chip(
+            palette,
+            label: '全部',
+            selected: _activeSourceId == null,
+            id: null,
+          ),
           for (final source in _enabledSources)
             _chip(
               palette,
@@ -359,8 +364,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         if (!mounted || source == null) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute(
-            builder: (_) =>
-                SourceTocPage(source: source!, result: item),
+            builder: (_) => SourceTocPage(source: source!, result: item),
           ),
         );
       },
@@ -371,11 +375,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
             SizedBox(
               width: 46,
               height: 61,
-              child: CoverArt(
-                title: item.title,
-                radius: 8,
-                glyphSize: 20,
-              ),
+              child: CoverArt(title: item.title, radius: 8, glyphSize: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -401,10 +401,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           item.author.isEmpty ? '未知作者' : item.author,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: palette.text3,
-                          ),
+                          style: TextStyle(fontSize: 12, color: palette.text3),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -492,10 +489,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(40, 0, 40, 60),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
