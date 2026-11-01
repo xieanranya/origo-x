@@ -49,6 +49,7 @@ class ShelfPageState extends State<ShelfPage> {
 
   List<Book> _books = const <Book>[];
   List<SourceShelfBook> _sourceBooks = const <SourceShelfBook>[];
+  Book? _recent;
   bool _loading = true;
   bool _importing = false;
   ShelfSort _sort = ShelfSort.recentRead;
@@ -81,12 +82,20 @@ class ShelfPageState extends State<ShelfPage> {
     } catch (error) {
       debugPrint('读取书架失败：$error');
     }
+    Book? recent;
+    try {
+      final recentBooks = await _dao.getRecentlyReadBooks(limit: 1);
+      if (recentBooks.isNotEmpty) recent = recentBooks.first;
+    } catch (_) {
+      // 没有最近阅读不影响书架。
+    }
     final sources = await _sourceStore.load();
     if (!mounted) return;
     setState(() {
       _sort = sort;
       _viewMode = viewMode;
       _books = _sorted(books, sort);
+      _recent = recent;
       _sourceBooks = sources;
       _loading = false;
     });
@@ -114,11 +123,11 @@ class ShelfPageState extends State<ShelfPage> {
   Future<_ShelfViewMode> _loadViewMode() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_viewModeKey) == 'grid'
-          ? _ShelfViewMode.grid
-          : _ShelfViewMode.list;
+      return prefs.getString(_viewModeKey) == 'list'
+          ? _ShelfViewMode.list
+          : _ShelfViewMode.grid;
     } catch (_) {
-      return _ShelfViewMode.list;
+      return _ShelfViewMode.grid;
     }
   }
 
@@ -676,6 +685,10 @@ class ShelfPageState extends State<ShelfPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(child: _buildHead(palette)),
+                    if (_continueBook != null)
+                      SliverToBoxAdapter(
+                        child: _buildHeroCard(palette, _continueBook!),
+                      ),
                     SliverToBoxAdapter(child: _buildFilterChips(palette)),
                     if (_isEmpty)
                       SliverFillRemaining(
@@ -758,6 +771,119 @@ class ShelfPageState extends State<ShelfPage> {
     );
   }
 
+  /// 0 < 进度 < 1 的最近一本书 → Rex 式「继续阅读」白卡。
+  Book? get _continueBook {
+    final book = _recent;
+    if (book == null) return null;
+    final progress = book.progress;
+    if (progress <= 0.001 || progress >= 0.999) return null;
+    return book;
+  }
+
+  Widget _buildHeroCard(AppPalette palette, Book book) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F101828),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 72,
+              height: 102,
+              child: CoverArt(
+                title: book.title,
+                path: book.coverImagePath,
+                radius: 10,
+                glyphSize: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '继续阅读',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
+                      color: palette.text3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    book.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: palette.text,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    book.author.trim().isEmpty
+                        ? '${book.format.toUpperCase()} · ${(book.progress * 100).round()}%'
+                        : '${book.author} · ${(book.progress * 100).round()}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, color: palette.text3),
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: book.progress.clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: palette.fill,
+                      valueColor: AlwaysStoppedAnimation<Color>(palette.accent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () => _open(book),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.text,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '继续',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: palette.surface,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterChips(AppPalette palette) {
     Widget chip(String label, _ShelfFilter value) {
       final selected = _filter == value;
@@ -768,15 +894,24 @@ class ShelfPageState extends State<ShelfPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: selected ? palette.accent : palette.fill,
+              color: selected ? palette.text : palette.surface,
               borderRadius: BorderRadius.circular(14),
+              boxShadow: selected
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: Color(0x0F101828),
+                        blurRadius: 10,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
             ),
             child: Text(
               label,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? Colors.white : palette.text2,
+                color: selected ? palette.surface : palette.text2,
               ),
             ),
           ),

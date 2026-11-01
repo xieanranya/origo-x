@@ -1,5 +1,7 @@
-// 文件说明：「我的」页，三组卡片列表（书库 / 阅读 / 其他），对齐新版外壳设计。
-// 行样式：30×30 圆角图标块（强调色 10% 底）+ 标题 + 右侧文字 + chevron。
+// 文件说明：「我的」页按 Rex（聚合媒体播放器）的画面重做：
+//   顶部大标题 + 「阅读全掌握」统计卡区（本周柱状 / 热力格 / 今日·本周·累计）
+//   + 分组设置列表（纯白大圆角卡、无描边、极轻阴影）。
+// 功能行与原来一致：书源管理 / 导入 / 备份 / 深色开关 / 关于。
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +10,7 @@ import '../../services/core/theme_notifier.dart';
 import '../../services/sources/book_source.dart';
 import '../shell/app_palette.dart';
 import '../sources/book_source_page.dart';
+import 'reading_stats_cards.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.onImport});
@@ -40,9 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _openSources() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const BookSourcePage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
     await _load();
   }
 
@@ -71,6 +74,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 '我的',
                 style: AppText.pageTitle.copyWith(color: palette.text),
               ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: ReadingStatsCards(),
             ),
             _groupTitle('书库', palette),
             _group(palette, [
@@ -169,10 +176,10 @@ class _ProfilePageState extends State<ProfilePage> {
       rows.add(children[i]);
     }
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(AppRadius.tile),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: palette.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
@@ -212,10 +219,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final valueText = value;
     if (valueText != null) {
       children.add(
-        Text(
-          valueText,
-          style: AppText.rowSub.copyWith(color: palette.text3),
-        ),
+        Text(valueText, style: AppText.rowSub.copyWith(color: palette.text3)),
       );
     }
     final tail = trailing;
