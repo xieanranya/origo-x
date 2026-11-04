@@ -166,19 +166,57 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Widget _buildHead(AppPalette palette) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 10),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text('发现', style: AppText.pageTitle.copyWith(color: palette.text)),
-          const Spacer(),
-          IconButton(
-            onPressed: _openSources,
-            iconSize: 24,
-            color: palette.text,
-            splashRadius: 22,
-            tooltip: '书源管理',
-            icon: const Icon(Icons.tune_rounded),
+          Container(
+            width: 3,
+            height: 22,
+            decoration: BoxDecoration(
+              color: palette.pine,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '发现',
+                  style: AppText.pageTitle.copyWith(color: palette.text),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  '书源搜书 · 拾遗补缺',
+                  style: AppText.caption.copyWith(
+                    color: palette.text3,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Tooltip(
+            message: '书源管理',
+            child: Material(
+              color: palette.pineSoft,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _openSources,
+                child: SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: palette.pine,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -187,38 +225,38 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Widget _buildSearchBox(AppPalette palette) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
       child: SizedBox(
-        height: 40,
+        height: 44,
         child: TextField(
           controller: _keyword,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
-          style: TextStyle(fontSize: 14.5, color: palette.text),
-          cursorColor: palette.accent,
+          style: AppText.rowTitle.copyWith(color: palette.text),
+          cursorColor: palette.pine,
           decoration: InputDecoration(
             isDense: true,
             filled: true,
-            fillColor: palette.fill,
+            fillColor: palette.surface,
             hintText: '搜书名 / 作者',
-            hintStyle: TextStyle(fontSize: 14.5, color: palette.text3),
-            prefixIcon: Icon(Icons.search, size: 18, color: palette.text3),
+            hintStyle: AppText.rowTitle.copyWith(color: palette.text3),
+            prefixIcon: Icon(Icons.search, size: 18, color: palette.pine),
             prefixIconConstraints: const BoxConstraints(
               minWidth: 40,
               minHeight: 40,
             ),
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.field),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+              borderSide: BorderSide(color: palette.hairline),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.field),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+              borderSide: BorderSide(color: palette.hairline),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.field),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+              borderSide: BorderSide(color: palette.pine, width: 1.2),
             ),
             suffixIcon: _keyword.text.isEmpty
                 ? null
@@ -274,15 +312,22 @@ class _DiscoverPageState extends State<DiscoverPage> {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
           decoration: BoxDecoration(
-            color: selected ? palette.accentSoft : palette.fill,
+            color: selected ? palette.pine : palette.surface,
             borderRadius: BorderRadius.circular(AppRadius.chip),
+            border: Border.all(
+              color: selected ? Colors.transparent : palette.hairline,
+            ),
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? palette.accent : palette.text2,
+            style: AppText.rowSub.copyWith(
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              letterSpacing: 1.2,
+              color: selected
+                  ? (palette.dark
+                        ? const Color(0xFF151815)
+                        : const Color(0xFFF7F4EC))
+                  : palette.text2,
             ),
           ),
         ),
@@ -300,19 +345,31 @@ class _DiscoverPageState extends State<DiscoverPage> {
         icon: Icons.cloud_off_outlined,
         title: '还没有启用书源',
         subtitle: '导入书源 JSON 后就能在这里搜书',
-        action: FilledButton(
-          onPressed: _openSources,
-          style: FilledButton.styleFrom(
-            backgroundColor: palette.accent,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        action: GestureDetector(
+          onTap: _openSources,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+            decoration: BoxDecoration(
+              color: palette.pine,
+              borderRadius: BorderRadius.circular(99),
+              boxShadow: [
+                BoxShadow(
+                  color: palette.pine.withValues(alpha: 0.26),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-          ),
-          child: const Text(
-            '导入书源',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            child: Text(
+              '导入书源',
+              style: AppText.rowTitle.copyWith(
+                fontSize: 14,
+                letterSpacing: 2,
+                color: palette.dark
+                    ? const Color(0xFF151815)
+                    : const Color(0xFFF7F4EC),
+              ),
+            ),
           ),
         ),
       );
@@ -387,9 +444,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppText.bookName.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: palette.text,
                     ),
                   ),
@@ -401,8 +458,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           item.author.isEmpty ? '未知作者' : item.author,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: AppText.bookAuthor.copyWith(
                             color: palette.text3,
                           ),
                         ),
@@ -414,14 +470,15 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: palette.fill,
-                          borderRadius: BorderRadius.circular(5),
+                          color: palette.pineSoft,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           item.sourceName,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: palette.text2,
+                          style: AppText.caption.copyWith(
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                            color: palette.pine,
                           ),
                         ),
                       ),
@@ -440,14 +497,14 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppRadius.chip),
-                  border: Border.all(color: palette.line),
+                  border: Border.all(color: palette.pine.withValues(alpha: 0.5)),
                 ),
                 child: Text(
                   '加入',
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppText.rowSub.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: palette.accent,
+                    letterSpacing: 1.5,
+                    color: palette.pine,
                   ),
                 ),
               ),
@@ -466,22 +523,35 @@ class _DiscoverPageState extends State<DiscoverPage> {
     Widget? action,
   }) {
     final children = <Widget>[
-      Icon(icon, size: 44, color: palette.text3.withValues(alpha: 0.6)),
-      const SizedBox(height: 14),
+      Container(
+        width: 66,
+        height: 66,
+        decoration: BoxDecoration(
+          color: palette.pineSoft,
+          shape: BoxShape.circle,
+          border: Border.all(color: palette.hairline),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, size: 28, color: palette.pine),
+      ),
+      const SizedBox(height: 16),
       Text(
         title,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+        style: AppText.sectionTitle.copyWith(
+          fontSize: 16,
           color: palette.text,
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 9),
       Text(
         subtitle,
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
+        style: AppText.caption.copyWith(
+          fontSize: 12.5,
+          height: 1.9,
+          color: palette.text3,
+        ),
       ),
     ];
     final button = action;

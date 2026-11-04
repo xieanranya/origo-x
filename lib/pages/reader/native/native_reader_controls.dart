@@ -79,7 +79,19 @@ extension _NativeReaderControls on _NativeReaderPageState {
       case ReaderThemes.systemId:
         return context.l10n.readerThemeFollowSystem;
       case 'paper':
-        return context.l10n.readerThemePaper;
+        return '宣纸';
+      case 'moyun_yuebai':
+        return '月白';
+      case 'moyun_zhuqing':
+        return '竹青';
+      case 'moyun_yunmu':
+        return '云母';
+      case 'moyun_dailan':
+        return '黛蓝';
+      case 'moyun_taoyao':
+        return '桃夭';
+      case 'moyun_ye':
+        return '墨韵夜';
       case 'green':
         return context.l10n.readerThemeGreen;
       case 'navy':

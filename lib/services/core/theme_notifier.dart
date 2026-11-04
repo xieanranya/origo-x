@@ -13,6 +13,9 @@ class ThemeNotifier extends ChangeNotifier {
   static const String _uiStylePrefKey = 'ui_style_mode';
   static const String _accentColorPrefKey = 'appAccentColorV2';
 
+  /// 墨韵国风改版：把旧默认蓝一次性迁到松绿，之后不再干预用户选择。
+  static const String _paletteMigrationKey = 'moyun_palette_v1';
+
   // 仅用于从旧版“双层主题 + 强调色”设置迁移。
   static const String _appThemePrefKey = 'appTheme';
   static const String _customAccentPrefKey = 'customAccentColor';
@@ -62,6 +65,15 @@ class ThemeNotifier extends ChangeNotifier {
     } else {
       _accentColor = _migrateLegacyAccentColor(prefs);
       await prefs.setInt(_accentColorPrefKey, _accentColor.toARGB32());
+    }
+    // 旧版本默认蓝（#1976D2）不是用户主动挑的颜色，跟随墨韵改版切到松绿；
+    // 用户自己选过的其它颜色一律保留。
+    if (!(prefs.getBool(_paletteMigrationKey) ?? false)) {
+      if (_accentColor.toARGB32() == 0xFF1976D2) {
+        _accentColor = AppThemes.defaultAccentColor;
+        await prefs.setInt(_accentColorPrefKey, _accentColor.toARGB32());
+      }
+      await prefs.setBool(_paletteMigrationKey, true);
     }
     await _removeLegacyThemePreferences(prefs);
     _currentAppTheme = AppThemes.fromAccentColor(_accentColor);

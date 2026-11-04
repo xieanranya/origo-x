@@ -69,10 +69,50 @@ class _ProfilePageState extends State<ProfilePage> {
           padding: const EdgeInsets.only(bottom: 32),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Text(
-                '我的',
-                style: AppText.pageTitle.copyWith(color: palette.text),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
+              child: Row(
+                children: [
+                  // 朱红方章：易读的字号标识。
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: palette.cinnabar.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '易',
+                      style: TextStyle(
+                        fontFamily: AppFont.serif,
+                        fontFamilyFallback: AppFont.fallback,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: palette.dark
+                            ? const Color(0xFF151815)
+                            : const Color(0xFFF7F4EC),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '我的',
+                        style: AppText.pageTitle.copyWith(color: palette.text),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '易读 · 静心读几页',
+                        style: AppText.caption.copyWith(
+                          color: palette.text3,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             const Padding(
@@ -159,10 +199,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _groupTitle(String text, AppPalette palette) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-      child: Text(
-        text,
-        style: AppText.groupLabel.copyWith(color: palette.text3),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 9),
+      child: Row(
+        children: [
+          // 细金线：分组标题前的小装饰。
+          Container(
+            width: 14,
+            height: 1,
+            color: palette.gold.withValues(alpha: 0.65),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: AppText.groupLabel.copyWith(color: palette.text3),
+          ),
+        ],
       ),
     );
   }
@@ -179,7 +230,8 @@ class _ProfilePageState extends State<ProfilePage> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: palette.hairline),
         boxShadow: palette.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
@@ -201,10 +253,10 @@ class _ProfilePageState extends State<ProfilePage> {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: palette.accentSoft,
+          color: palette.pineSoft,
           borderRadius: BorderRadius.circular(9),
         ),
-        child: Icon(icon, size: 17, color: palette.accent),
+        child: Icon(icon, size: 17, color: palette.pine),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -236,7 +288,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: 52,
+        height: 54,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(children: children),

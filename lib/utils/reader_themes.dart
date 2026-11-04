@@ -400,20 +400,118 @@ class ReaderThemes {
     backgroundImageOpacity: 1.0,
   );
 
-  /// 纸黄（精校默认）：暖白纸底 + 深墨字 + 赭石强调色。
+  /// 墨韵宣纸（默认）：宣纸底 + 墨字 + 松绿强调色。
   static const paper = ReaderThemePalette(
     id: 'paper',
     brightness: Brightness.light,
-    background: Color(0xFFF7F3EA),
-    text: Color(0xFF2B2A26),
-    secondaryText: Color(0xFF9A9184),
+    background: Color(0xFFF7F4EC),
+    text: Color(0xFF26261F),
+    secondaryText: Color(0xFF97978A),
     surface: Color(0xFFFFFDF8),
     controlBar: Color(0xFFF2EDE2),
     controlFill: Color(0xFFE9E3D6),
-    accent: Color(0xFF8A5A3B),
-    onAccent: Color(0xFFFFFDF8),
-    border: Color(0xFFD8CFC0),
+    accent: Color(0xFF2F5D50),
+    onAccent: Color(0xFFF7F4EC),
+    border: Color(0xFFD9D2C2),
     shadow: Color(0xFF6A5540),
+  );
+
+  // ---- 墨韵六色：国画颜料为底，配同色系强调色 ----
+
+  /// 月白：冷调纸白，适合白天强光。
+  static const moyunYueBai = ReaderThemePalette(
+    id: 'moyun_yuebai',
+    brightness: Brightness.light,
+    background: Color(0xFFF2F5F4),
+    text: Color(0xFF22302B),
+    secondaryText: Color(0xFF7C8A85),
+    surface: Color(0xFFFBFDFC),
+    controlBar: Color(0xFFE8EEEB),
+    controlFill: Color(0xFFDCE6E1),
+    accent: Color(0xFF3E5C76),
+    onAccent: Color(0xFFF4F8F7),
+    border: Color(0xFFCBD6D1),
+    shadow: Color(0xFF2B3A34),
+  );
+
+  /// 竹青：淡竹纸底，久看不刺眼。
+  static const moyunZhuQing = ReaderThemePalette(
+    id: 'moyun_zhuqing',
+    brightness: Brightness.light,
+    background: Color(0xFFE8EEE4),
+    text: Color(0xFF233024),
+    secondaryText: Color(0xFF64725F),
+    surface: Color(0xFFF2F6EE),
+    controlBar: Color(0xFFDCE6D6),
+    controlFill: Color(0xFFCBDAC3),
+    accent: Color(0xFF4E7A66),
+    onAccent: Color(0xFFF2F6EE),
+    border: Color(0xFFB9C9B1),
+    shadow: Color(0xFF2A3A2B),
+  );
+
+  /// 云母：灰米纸，最克制的一套。
+  static const moyunYunMu = ReaderThemePalette(
+    id: 'moyun_yunmu',
+    brightness: Brightness.light,
+    background: Color(0xFFF3F1EC),
+    text: Color(0xFF2D2C28),
+    secondaryText: Color(0xFF85837B),
+    surface: Color(0xFFFAF8F4),
+    controlBar: Color(0xFFEAE6DD),
+    controlFill: Color(0xFFDDD8CC),
+    accent: Color(0xFF8A7A5E),
+    onAccent: Color(0xFFFAF8F4),
+    border: Color(0xFFD2CCBE),
+    shadow: Color(0xFF4A4438),
+  );
+
+  /// 黛蓝：青灰蓝纸，偏冷静。
+  static const moyunDaiLan = ReaderThemePalette(
+    id: 'moyun_dailan',
+    brightness: Brightness.light,
+    background: Color(0xFFE9EDF2),
+    text: Color(0xFF1F2733),
+    secondaryText: Color(0xFF6B7787),
+    surface: Color(0xFFF4F7FA),
+    controlBar: Color(0xFFDEE5EE),
+    controlFill: Color(0xFFCDD8E5),
+    accent: Color(0xFF3E5C76),
+    onAccent: Color(0xFFF4F7FA),
+    border: Color(0xFFC0CCDA),
+    shadow: Color(0xFF2A3442),
+  );
+
+  /// 桃夭：极浅桃粉纸，适合轻松读本。
+  static const moyunTaoYao = ReaderThemePalette(
+    id: 'moyun_taoyao',
+    brightness: Brightness.light,
+    background: Color(0xFFFBF0EC),
+    text: Color(0xFF332622),
+    secondaryText: Color(0xFF8B7469),
+    surface: Color(0xFFFFF8F5),
+    controlBar: Color(0xFFF6E7E0),
+    controlFill: Color(0xFFEEDAD1),
+    accent: Color(0xFFB5606A),
+    onAccent: Color(0xFFFFF8F5),
+    border: Color(0xFFE0C9C0),
+    shadow: Color(0xFF4A3630),
+  );
+
+  /// 墨韵夜：松墨夜底 + 月白字 + 竹青强调。
+  static const moyunYe = ReaderThemePalette(
+    id: 'moyun_ye',
+    brightness: Brightness.dark,
+    background: Color(0xFF20241F),
+    text: Color(0xFFE6E2D4),
+    secondaryText: Color(0xFF9A9C8C),
+    surface: Color(0xFF262B26),
+    controlBar: Color(0xFF2B302A),
+    controlFill: Color(0xFF343A33),
+    accent: Color(0xFF8FB8A3),
+    onAccent: Color(0xFF20241F),
+    border: Color(0xFF4A4F46),
+    shadow: Color(0xFF000000),
   );
 
   static const day = ReaderThemePalette(
@@ -511,6 +609,12 @@ class ReaderThemes {
   static const List<ReaderThemePalette> _concreteBuiltins =
       <ReaderThemePalette>[
         paper,
+        moyunYueBai,
+        moyunZhuQing,
+        moyunYunMu,
+        moyunDaiLan,
+        moyunTaoYao,
+        moyunYe,
         day,
         green,
         parchment,

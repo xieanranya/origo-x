@@ -578,7 +578,7 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: widget.palette.text,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
+                    letterSpacing: 1.5,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -602,7 +602,8 @@ class _ReaderNavigationSheetState extends State<ReaderNavigationSheet>
             style: IconButton.styleFrom(
               backgroundColor: widget.palette.controlBar,
               foregroundColor: widget.palette.secondaryText,
-              minimumSize: const Size(44, 44),
+              minimumSize: const Size(40, 40),
+              shape: const CircleBorder(),
             ),
             icon: const Icon(Icons.close_rounded, size: 20),
           ),

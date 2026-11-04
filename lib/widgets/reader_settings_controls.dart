@@ -12,6 +12,7 @@ import '../core/reader/reader_custom_theme.dart';
 import '../core/reader/reader_system_ui.dart';
 import '../utils/reader_themes.dart';
 import '../utils/localization_extension.dart';
+import '../pages/shell/app_palette.dart';
 import 'reader_thin_slider.dart';
 import 'reader_chapter_progress_setting_tile.dart';
 
@@ -1703,13 +1704,13 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     });
   }
 
-  /// 首屏只放 5 张主卡（纸黄 / 白天 / 护眼 / 黑夜 / 自定义）；
+  /// 首屏放墨韵四色（宣纸 / 竹青 / 黛蓝 / 墨韵夜）+ 自定义；
   /// 其余主题统一进「自定义 / 更多主题」页，横向滚动不再一长串。
   static const List<String> _primaryThemeIds = <String>[
     'paper',
-    'day',
-    'green',
-    'night',
+    'moyun_zhuqing',
+    'moyun_dailan',
+    'moyun_ye',
   ];
 
   @override
@@ -1861,6 +1862,12 @@ class _ReaderThemeStripState extends State<ReaderThemeStrip> {
     'parchment' => Icons.auto_stories_rounded,
     'paper' => Icons.description_outlined,
     'green' => Icons.eco_rounded,
+    'moyun_yuebai' => Icons.cloud_outlined,
+    'moyun_zhuqing' => Icons.park_outlined,
+    'moyun_yunmu' => Icons.circle_outlined,
+    'moyun_dailan' => Icons.water_outlined,
+    'moyun_taoyao' => Icons.local_florist_outlined,
+    'moyun_ye' => Icons.nightlight_outlined,
     _ => Icons.light_mode_rounded,
   };
 }
@@ -1944,6 +1951,8 @@ class _ReaderThemeCard extends StatelessWidget {
                           'Aa',
                           style: TextStyle(
                             inherit: false,
+                            fontFamily: AppFont.serif,
+                            fontFamilyFallback: AppFont.fallback,
                             fontSize: 19,
                             height: 1,
                             fontWeight: FontWeight.w600,
@@ -1960,8 +1969,11 @@ class _ReaderThemeCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         inherit: false,
+                        fontFamily: AppFont.serif,
+                        fontFamilyFallback: AppFont.fallback,
                         fontSize: 9.5,
                         height: 1.1,
+                        letterSpacing: 0.5,
                         fontWeight: FontWeight.w600,
                         color: chromePalette.text,
                       ),
@@ -2441,8 +2453,8 @@ class _SheetCard extends StatelessWidget {
         color: colors.surfaceContainerHighest,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.09)),
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
@@ -2474,7 +2486,7 @@ class _ReaderSettingsTabBar extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: palette.controlFill,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(99),
         border: Border.all(color: palette.border),
       ),
       child: Row(
@@ -2517,12 +2529,12 @@ class _ReaderSettingsTabButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
           color: selected ? palette.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(99),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: palette.shadow.withValues(alpha: 0.35),
-                    blurRadius: 3,
+                    color: palette.shadow.withValues(alpha: 0.30),
+                    blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),
                 ]
@@ -2534,8 +2546,11 @@ class _ReaderSettingsTabButton extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
+            fontFamily: AppFont.serif,
+            fontFamilyFallback: AppFont.fallback,
             fontSize: 10.5,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            letterSpacing: 1,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
             color: selected ? palette.text : palette.secondaryText,
           ),
         ),

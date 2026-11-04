@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../services/sources/book_source.dart';
+import '../shell/app_palette.dart';
 import '../../services/sources/book_source_engine.dart';
 
 /// 书源管理页：导入、启用、删除。
@@ -127,10 +128,9 @@ class _BookSourcePageState extends State<BookSourcePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F7F8);
-    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final palette = AppPalette.of(context);
+    final cardColor = palette.surface;
+    final subColor = palette.text3;
 
     return Scaffold(
       appBar: AppBar(
@@ -319,7 +319,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final palette = AppPalette.of(context);
+    final subColor = palette.text3;
 
     return Scaffold(
       appBar: widget.embedded ? null : AppBar(title: const Text('搜索')),
@@ -504,8 +505,8 @@ class _SourceTocPageState extends State<SourceTocPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final palette = AppPalette.of(context);
+    final subColor = palette.text3;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -627,8 +628,8 @@ class _SourceReaderPageState extends State<SourceReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
+    final palette = AppPalette.of(context);
+    final subColor = palette.text3;
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -679,7 +680,7 @@ class _SourceReaderPageState extends State<SourceReaderPage> {
                   style: TextStyle(
                     fontSize: 17,
                     height: 1.95,
-                    color: isDark ? const Color(0xFFCFCABF) : const Color(0xFF23201A),
+                    color: AppPalette.of(context).text,
                   ),
                 ),
                 const SizedBox(height: 28),

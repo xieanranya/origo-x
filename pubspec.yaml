@@ -1,7 +1,7 @@
 name: xxread
 description: Local TXT and EPUB reader source edition.
 publish_to: none
-version: 2.9.0+261011233
+version: 2.10.0+261104220
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -32,6 +32,11 @@ dependencies:
   sqflite_common_ffi_web: ^1.1.2
   uuid: ^4.6.0
 
+# sqlite3 3.6+ 会走 native assets 从 GitHub 拉 prebuilt .so，本地/CI 网络都不稳；
+# 锁在 3.5.0（纯 FFI，无额外下载）。
+dependency_overrides:
+  sqlite3: 3.5.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -44,6 +49,13 @@ flutter:
     - family: ReaderIndent
       fonts:
         - asset: assets/fonts/ReaderIndent.ttf
+    # 墨韵国风：思源宋体（SIL OFL 1.1，随包分发）
+    - family: NotoSerifSC
+      fonts:
+        - asset: assets/fonts/NotoSerifSC-Regular.otf
+          weight: 400
+        - asset: assets/fonts/NotoSerifSC-Bold.otf
+          weight: 700
   assets:
     - assets/fonts/licenses/
     - assets/icons/

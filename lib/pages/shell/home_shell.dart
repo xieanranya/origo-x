@@ -1,6 +1,6 @@
 // 文件说明：App 外层容器，底部三个页签（书架 / 发现 / 我的）。
-// 底栏按「开源阅读」的 iOS 版样式重做：细分割线 + 平面图标/文字，
-// 不再用 Material NavigationBar 的胶囊指示器。漫画已并入书架。
+// 墨韵改版：底栏从贴边平面条改为「悬浮宣纸胶囊」——半透明纸底 + 细描边 +
+// 柔和投影，选中项用松绿；外层留出安全区，内容不被遮挡。
 import 'package:flutter/material.dart';
 
 import '../discover/discover_page.dart';
@@ -31,7 +31,9 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return Scaffold(
+      backgroundColor: palette.bg,
       body: IndexedStack(
         index: _index,
         children: [
@@ -40,8 +42,8 @@ class _HomeShellState extends State<HomeShell> {
           ProfilePage(onImport: _importFromProfile),
         ],
       ),
-      bottomNavigationBar: _LegadoTabBar(
-        palette: AppPalette.of(context),
+      bottomNavigationBar: _FloatingTabBar(
+        palette: palette,
         index: _index,
         onChanged: (index) => setState(() => _index = index),
       ),
@@ -49,9 +51,9 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// 平面 tab 栏：细顶边 + 图标 22 / 文字 10，选中用强调色。
-class _LegadoTabBar extends StatelessWidget {
-  const _LegadoTabBar({
+/// 悬浮胶囊底栏：纸底 + 细边 + 投影，图标 21 / 文字 10.5，选中松绿。
+class _FloatingTabBar extends StatelessWidget {
+  const _FloatingTabBar({
     required this.palette,
     required this.index,
     required this.onChanged,
@@ -69,48 +71,77 @@ class _LegadoTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.surface,
-        border: Border(top: BorderSide(color: palette.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 52,
-          child: Row(
-            children: [
-              for (var i = 0; i < _items.length; i++)
-                Expanded(
-                  child: InkWell(
-                    onTap: () => onChanged(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          i == index ? _items[i].$2 : _items[i].$1,
-                          size: 22,
-                          color: i == index ? palette.accent : palette.text3,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _items[i].$3,
-                          style: TextStyle(
-                            fontSize: 10,
-                            height: 1.1,
-                            fontWeight: i == index
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: i == index ? palette.accent : palette.text3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 10 + bottomInset),
+      child: Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: palette.float,
+          borderRadius: BorderRadius.circular(AppRadius.chip),
+          border: Border.all(color: palette.hairline),
+          boxShadow: palette.floatShadow,
         ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            for (var i = 0; i < _items.length; i++)
+              Expanded(
+                child: _TabItem(
+                  palette: palette,
+                  icon: i == index ? _items[i].$2 : _items[i].$1,
+                  label: _items[i].$3,
+                  active: i == index,
+                  onTap: () => onChanged(i),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.palette,
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final AppPalette palette;
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? palette.pine : palette.text3;
+    return InkWell(
+      onTap: onTap,
+      splashColor: palette.pineSoft,
+      highlightColor: Colors.transparent,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 21, color: color),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppFont.serif,
+              fontFamilyFallback: AppFont.fallback,
+              fontSize: 10.5,
+              height: 1.1,
+              letterSpacing: 2,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

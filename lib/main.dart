@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
 import 'core/reader/reader_design_migration.dart';
+import 'pages/shell/app_palette.dart';
 import 'pages/shell/home_shell.dart';
 import 'services/core/app_settings_service.dart';
 import 'services/core/theme_notifier.dart';
@@ -42,21 +43,81 @@ class LocalReaderApp extends StatelessWidget {
       builder: (_, theme, settings, _) => MaterialApp(
         title: '易读',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: theme.accentColor,
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorSchemeSeed: theme.accentColor,
-          brightness: Brightness.dark,
-          useMaterial3: true,
-        ),
+        theme: _buildTheme(theme.accentColor, Brightness.light),
+        darkTheme: _buildTheme(theme.accentColor, Brightness.dark),
         themeMode: theme.themeMode,
         locale: settings.locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const HomeShell(),
       ),
+    ),
+  );
+}
+
+/// 墨韵国风基础主题：全局宋体 + 宣纸底 + 去 M3 默认紫。
+ThemeData _buildTheme(Color seed, Brightness brightness) {
+  final base = ThemeData(
+    colorSchemeSeed: seed,
+    useMaterial3: true,
+    brightness: brightness,
+    fontFamily: AppFont.serif,
+  );
+  final paper = brightness == Brightness.light
+      ? const Color(0xFFF1ECE0)
+      : const Color(0xFF151815);
+  final surface = brightness == Brightness.light
+      ? const Color(0xFFFFFDF8)
+      : const Color(0xFF262B26);
+  return base.copyWith(
+    scaffoldBackgroundColor: paper,
+    canvasColor: paper,
+    appBarTheme: AppBarTheme(
+      backgroundColor: paper,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: false,
+    ),
+    dialogTheme: base.dialogTheme.copyWith(
+      backgroundColor: surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.sheet),
+      ),
+    ),
+    bottomSheetTheme: base.bottomSheetTheme.copyWith(
+      backgroundColor: surface,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.sheet),
+        ),
+      ),
+    ),
+    snackBarTheme: base.snackBarTheme.copyWith(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: brightness == Brightness.light
+          ? const Color(0xFF26261F)
+          : const Color(0xFFE6E2D4),
+      contentTextStyle: TextStyle(
+        fontFamily: AppFont.serif,
+        fontFamilyFallback: AppFont.fallback,
+        fontSize: 13,
+        letterSpacing: 0.6,
+        color: brightness == Brightness.light
+            ? const Color(0xFFF7F4EC)
+            : const Color(0xFF20241F),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.tile),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: brightness == Brightness.light
+          ? const Color(0x1426261F)
+          : const Color(0x1FE6E2D4),
+      thickness: 1,
+      space: 1,
     ),
   );
 }

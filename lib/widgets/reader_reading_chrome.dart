@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import '../core/reader/reader_auto_page_turn_controller.dart';
+import '../pages/shell/app_palette.dart';
 import '../core/reader/reader_leaf_status.dart';
 import '../utils/glass_config.dart';
 import '../utils/reader_themes.dart';
@@ -183,6 +184,7 @@ class ReaderReadingChrome extends StatelessWidget {
                 bottom: false,
                 child: _ReaderGlassPanel(
                   palette: palette,
+                  radius: 999,
                   child: SizedBox(
                     height: 48,
                     child: Padding(
@@ -207,10 +209,12 @@ class ReaderReadingChrome extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 inherit: false,
+                                fontFamily: AppFont.serif,
+                                fontFamilyFallback: AppFont.fallback,
                                 fontSize: 13,
                                 height: 1.2,
                                 fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
+                                letterSpacing: 1,
                                 color: palette.text,
                               ),
                             ),
@@ -254,6 +258,7 @@ class ReaderReadingChrome extends StatelessWidget {
                 top: false,
                 child: _ReaderGlassPanel(
                   palette: palette,
+                  radius: 24,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                     child: Column(
@@ -295,6 +300,8 @@ class ReaderReadingChrome extends StatelessWidget {
                                   maxLines: 1,
                                   style: TextStyle(
                                     inherit: false,
+                                    fontFamily: AppFont.serif,
+                                    fontFamilyFallback: AppFont.fallback,
                                     fontSize: 10,
                                     height: 1,
                                     color: palette.secondaryText,
@@ -460,12 +467,19 @@ class ReaderReadingChrome extends StatelessWidget {
 
 /// flat 半透明纸面：1px 细边 + blur(18) + 20 圆角 + 柔和投影。
 class _ReaderGlassPanel extends StatelessWidget {
-  const _ReaderGlassPanel({required this.palette, required this.child});
+  const _ReaderGlassPanel({
+    required this.palette,
+    required this.child,
+    this.radius = 24,
+  });
 
   final ReaderThemePalette palette;
   final Widget child;
 
-  static final BorderRadius _radius = BorderRadius.circular(20);
+  /// 顶部栏传 999 做成胶囊，底部面板用 24。
+  final double radius;
+
+  BorderRadius get _radius => BorderRadius.circular(radius);
 
   @override
   Widget build(BuildContext context) {
@@ -576,8 +590,11 @@ class _ReaderChapterNavButton extends StatelessWidget {
             maxLines: 1,
             style: TextStyle(
               inherit: false,
+              fontFamily: AppFont.serif,
+              fontFamilyFallback: AppFont.fallback,
               fontSize: 10.5,
               height: 1.2,
+              letterSpacing: 1,
               color: palette.secondaryText,
             ),
           ),
@@ -623,8 +640,15 @@ class _ReaderDockTool extends StatelessWidget {
             key: toolKey,
             onTap: onTap,
             borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: active
+                    ? palette.accent.withValues(alpha: 0.10)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -636,8 +660,11 @@ class _ReaderDockTool extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       inherit: false,
+                      fontFamily: AppFont.serif,
+                      fontFamilyFallback: AppFont.fallback,
                       fontSize: 9.5,
                       height: 1.1,
+                      letterSpacing: 1,
                       color: color,
                     ),
                   ),

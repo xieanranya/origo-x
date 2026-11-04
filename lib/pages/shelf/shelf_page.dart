@@ -725,13 +725,45 @@ class ShelfPageState extends State<ShelfPage> {
   int get _visibleCount => _visibleBooks.length + _visibleSourceBooks.length;
 
   Widget _buildHead(AppPalette palette) {
+    final total = _visibleCount;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 8, 6),
+      padding: const EdgeInsets.fromLTRB(20, 10, 10, 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text('我的书架', style: AppText.pageTitle.copyWith(color: palette.text)),
-          const Spacer(),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // 竖排松绿细条，替代图标做标题装饰。
+                    Container(
+                      width: 3,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: palette.pine,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '我的书架',
+                      style: AppText.pageTitle.copyWith(color: palette.text),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  total == 0 ? '纸页之间 · 待君添书' : '共 $total 本 · 纸页之间',
+                  style: AppText.caption.copyWith(
+                    color: palette.text3,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
           _headIcon(
             icon: Icons.search_rounded,
             palette: palette,
@@ -745,7 +777,7 @@ class ShelfPageState extends State<ShelfPage> {
             onTap: _importing ? null : _import,
           ),
           _headIcon(
-            icon: Icons.more_vert_rounded,
+            icon: Icons.more_horiz_rounded,
             palette: palette,
             tooltip: '更多',
             onTap: _showMore,
@@ -761,13 +793,24 @@ class ShelfPageState extends State<ShelfPage> {
     required String tooltip,
     VoidCallback? onTap,
   }) {
-    return IconButton(
-      onPressed: onTap,
-      tooltip: tooltip,
-      iconSize: 23,
-      color: palette.text,
-      splashRadius: 22,
-      icon: Icon(icon),
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: palette.pineSoft,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: Icon(icon, size: 19, color: palette.pine),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -781,100 +824,125 @@ class ShelfPageState extends State<ShelfPage> {
   }
 
   Widget _buildHeroCard(AppPalette palette, Book book) {
+    final percent = (book.progress * 100).round();
+    final meta = book.author.trim().isEmpty
+        ? '${book.format.toUpperCase()} · $percent%'
+        : '${book.author} · $percent%';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: palette.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0F101828),
-              blurRadius: 18,
-              offset: Offset(0, 6),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: palette.hairline),
+          boxShadow: palette.cardShadow,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 72,
-              height: 102,
-              child: CoverArt(
-                title: book.title,
-                path: book.coverImagePath,
-                radius: 10,
-                glyphSize: 26,
-              ),
+            _SpineCover(
+              title: book.title,
+              path: book.coverImagePath,
+              width: 74,
+              height: 106,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '继续阅读',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                      color: palette.text3,
+              child: SizedBox(
+                height: 106,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: palette.cinnabar,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '上次读到',
+                          style: AppText.caption.copyWith(
+                            color: palette.text3,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    book.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: palette.text,
+                    const SizedBox(height: 6),
+                    Text(
+                      book.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.sectionTitle.copyWith(
+                        fontSize: 17,
+                        color: palette.text,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    book.author.trim().isEmpty
-                        ? '${book.format.toUpperCase()} · ${(book.progress * 100).round()}%'
-                        : '${book.author} · ${(book.progress * 100).round()}%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, color: palette.text3),
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(
-                      value: book.progress.clamp(0.0, 1.0),
-                      minHeight: 5,
-                      backgroundColor: palette.fill,
-                      valueColor: AlwaysStoppedAnimation<Color>(palette.accent),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.bookAuthor.copyWith(
+                        color: palette.text3,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => _open(book),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.text,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  '继续',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: palette.surface,
-                  ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: book.progress.clamp(0.0, 1.0),
+                              minHeight: 3,
+                              backgroundColor: palette.fill,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                palette.pine,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () => _open(book),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.pine,
+                              borderRadius: BorderRadius.circular(99),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: palette.pine.withValues(alpha: 0.28),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              '续读',
+                              style: AppText.rowSub.copyWith(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 2,
+                                color: palette.dark
+                                    ? const Color(0xFF151815)
+                                    : const Color(0xFFF7F4EC),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -892,26 +960,33 @@ class ShelfPageState extends State<ShelfPage> {
         child: GestureDetector(
           onTap: () => setState(() => _filter = value),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
             decoration: BoxDecoration(
-              color: selected ? palette.text : palette.surface,
-              borderRadius: BorderRadius.circular(14),
+              color: selected ? palette.pine : palette.surface,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+              border: Border.all(
+                color: selected ? Colors.transparent : palette.hairline,
+              ),
               boxShadow: selected
-                  ? null
-                  : const [
+                  ? [
                       BoxShadow(
-                        color: Color(0x0F101828),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
+                        color: palette.pine.withValues(alpha: 0.24),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                    ],
+                    ]
+                  : null,
             ),
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? palette.surface : palette.text2,
+              style: AppText.rowSub.copyWith(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                letterSpacing: 1.5,
+                color: selected
+                    ? (palette.dark
+                          ? const Color(0xFF151815)
+                          : const Color(0xFFF7F4EC))
+                    : palette.text2,
               ),
             ),
           ),
@@ -920,10 +995,10 @@ class ShelfPageState extends State<ShelfPage> {
     }
 
     return SizedBox(
-      height: 40,
+      height: 46,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         children: [
           chip('全部', _ShelfFilter.all),
           chip('本地书籍', _ShelfFilter.local),
@@ -935,22 +1010,28 @@ class ShelfPageState extends State<ShelfPage> {
                 onTap: () => setState(() => _query = ''),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 13,
+                    vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: palette.accentSoft,
-                    borderRadius: BorderRadius.circular(14),
+                    color: palette.cinnabar.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(AppRadius.chip),
+                    border: Border.all(
+                      color: palette.cinnabar.withValues(alpha: 0.28),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '“$_query”',
-                        style: TextStyle(fontSize: 12.5, color: palette.accent),
+                        style: AppText.rowSub.copyWith(
+                          color: palette.cinnabar,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.close, size: 13, color: palette.accent),
+                      const SizedBox(width: 5),
+                      Icon(Icons.close, size: 13, color: palette.cinnabar),
                     ],
                   ),
                 ),
@@ -1027,7 +1108,9 @@ class ShelfPageState extends State<ShelfPage> {
     return Container(
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: palette.hairline),
+        boxShadow: palette.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: rows),
@@ -1071,47 +1154,103 @@ class ShelfPageState extends State<ShelfPage> {
   Widget _buildEmpty(AppPalette palette) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
+        padding: const EdgeInsets.fromLTRB(40, 24, 40, 60),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.auto_stories_outlined,
-              size: 62,
-              color: palette.text3.withValues(alpha: 0.55),
+            // 朱红印章 + 水墨圈，替代通用图标。
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: palette.cinnabar.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: palette.cinnabar.withValues(alpha: 0.28),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: palette.cinnabar.withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '藏',
+                  style: TextStyle(
+                    fontFamily: AppFont.serif,
+                    fontFamilyFallback: AppFont.fallback,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: palette.dark
+                        ? const Color(0xFF151815)
+                        : const Color(0xFFF7F4EC),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               '书架空空如也',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: AppText.sectionTitle.copyWith(
+                fontSize: 17,
                 color: palette.text,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
-              '点击右上角 + 导入本地 TXT / EPUB，\n或到「发现」用书源搜索网络小说',
+              '点击右上角 + 导入本地 TXT / EPUB\n或到「发现」用书源搜索网络小说',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, height: 1.9, color: palette.text3),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _importing ? null : _import,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text(
-                '导入书籍',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: AppText.caption.copyWith(
+                fontSize: 12.5,
+                height: 1.9,
+                letterSpacing: 1,
+                color: palette.text3,
               ),
-              style: FilledButton.styleFrom(
-                backgroundColor: palette.accent,
-                foregroundColor: Colors.white,
+            ),
+            const SizedBox(height: 22),
+            GestureDetector(
+              onTap: _importing ? null : _import,
+              child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
+                  horizontal: 22,
                   vertical: 12,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                decoration: BoxDecoration(
+                  color: palette.pine,
+                  borderRadius: BorderRadius.circular(99),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.pine.withValues(alpha: 0.28),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_rounded,
+                      size: 17,
+                      color: palette.dark
+                          ? const Color(0xFF151815)
+                          : const Color(0xFFF7F4EC),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '导入书籍',
+                      style: AppText.rowTitle.copyWith(
+                        letterSpacing: 2,
+                        color: palette.dark
+                            ? const Color(0xFF151815)
+                            : const Color(0xFFF7F4EC),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1182,7 +1321,7 @@ class _LocalBookRow extends StatelessWidget {
                           vertical: 1.5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF3B30),
+                          color: palette.cinnabar,
                           borderRadius: BorderRadius.circular(99),
                           border: Border.all(
                             color: palette.surface,
@@ -1213,8 +1352,8 @@ class _LocalBookRow extends StatelessWidget {
                     book.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: AppText.bookName.copyWith(
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w700,
                       color: palette.text,
                     ),
@@ -1225,7 +1364,7 @@ class _LocalBookRow extends StatelessWidget {
                       book.author,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: palette.text3),
+                      style: AppText.bookAuthor.copyWith(color: palette.text3),
                     ),
                   ],
                   const SizedBox(height: 4),
@@ -1233,9 +1372,10 @@ class _LocalBookRow extends StatelessWidget {
                     readLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppText.caption.copyWith(
                       fontSize: 11,
-                      color: neverRead ? palette.text3 : palette.accent,
+                      letterSpacing: 0.6,
+                      color: neverRead ? palette.text3 : palette.pine,
                     ),
                   ),
                 ],
@@ -1286,8 +1426,8 @@ class _SourceBookRow extends StatelessWidget {
                     book.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: AppText.bookName.copyWith(
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w700,
                       color: palette.text,
                     ),
@@ -1297,27 +1437,90 @@ class _SourceBookRow extends StatelessWidget {
                     book.author.isEmpty ? '佚名' : book.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: palette.text3),
+                    style: AppText.bookAuthor.copyWith(color: palette.text3),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
+                      horizontal: 7,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: palette.fill,
+                      color: palette.pineSoft,
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
                       '书源 · ${book.sourceName}',
-                      style: TextStyle(fontSize: 10.5, color: palette.text2),
+                      style: AppText.caption.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                        color: palette.pine,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             Icon(Icons.chevron_right_rounded, size: 18, color: palette.text3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 书脊立体封面：左侧压暗 + 底部投影，让平封面看起来有「书」的厚度。
+class _SpineCover extends StatelessWidget {
+  const _SpineCover({
+    required this.title,
+    this.path,
+    required this.width,
+    required this.height,
+  });
+
+  final String title;
+  final String? path;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2E26261F),
+            blurRadius: 14,
+            offset: Offset(4, 7),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CoverArt(title: title, path: path, radius: 5, glyphSize: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 8,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Color(0x59000000), Color(0x00000000)],
+                  ),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(width: 2, color: const Color(0x1FFFFFFF)),
+            ),
           ],
         ),
       ),

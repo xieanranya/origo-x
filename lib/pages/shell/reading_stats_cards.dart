@@ -75,19 +75,14 @@ class _ReadingStatsCardsState extends State<ReadingStatsCards> {
   }
 }
 
-Widget statsCard({required Widget child}) {
+Widget statsCard({required Widget child, required AppPalette palette}) {
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x0F101828),
-          blurRadius: 18,
-          offset: Offset(0, 6),
-        ),
-      ],
+      color: palette.surface,
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      border: Border.all(color: palette.hairline),
+      boxShadow: palette.cardShadow,
     ),
     child: child,
   );
@@ -100,11 +95,18 @@ class _WeeklyCard extends StatelessWidget {
   final AppPalette palette;
   final List<({int weekday, int seconds})> week;
 
-  static const _barGradient = LinearGradient(
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
-    colors: [Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFFF97316)],
-  );
+  /// 松绿渐变：底部墨绿压住，向上化到竹青。
+  LinearGradient get _barGradient => palette.dark
+      ? const LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xFF5E8A76), Color(0xFFB8D5C6)],
+        )
+      : const LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xFF2F5D50), Color(0xFF8FB8A3)],
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +121,7 @@ class _WeeklyCard extends StatelessWidget {
     );
     final todayWeekday = DateTime.now().weekday;
     return statsCard(
+      palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -126,9 +129,8 @@ class _WeeklyCard extends StatelessWidget {
             children: [
               Text(
                 '本周阅读',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: AppText.groupLabel.copyWith(
+                  letterSpacing: 2,
                   color: palette.text2,
                 ),
               ),
@@ -147,9 +149,12 @@ class _WeeklyCard extends StatelessWidget {
               Text(
                 bigNumber,
                 style: TextStyle(
+                  fontFamily: AppFont.serif,
+                  fontFamilyFallback: AppFont.fallback,
                   fontSize: 34,
                   height: 1,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                   color: palette.text,
                 ),
               ),
@@ -279,6 +284,7 @@ class _HeatmapCard extends StatelessWidget {
       cells.add((key: key, level: heat[key] ?? 0));
     }
     return statsCard(
+      palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -327,7 +333,7 @@ class _HeatmapCard extends StatelessWidget {
     } else {
       color = Color.lerp(
         base,
-        const Color(0xFF7C5CFF),
+        palette.pine,
         0.25 + 0.75 * cell.level,
       )!;
     }
@@ -361,20 +367,30 @@ class _SummaryRow extends StatelessWidget {
 
     Widget block(String title, String value) => Expanded(
       child: statsCard(
+        palette: palette,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: TextStyle(fontSize: 12, color: palette.text2)),
+            Text(
+              title,
+              style: AppText.caption.copyWith(
+                letterSpacing: 1.5,
+                color: palette.text2,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
+                fontFamily: AppFont.serif,
+                fontFamilyFallback: AppFont.fallback,
                 fontSize: 17,
                 height: 1.1,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
                 color: palette.text,
               ),
             ),
