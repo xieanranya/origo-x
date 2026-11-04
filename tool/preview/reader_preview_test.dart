@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xxread/core/reader/reader_header_footer_settings.dart';
 import 'package:xxread/core/reader/reader_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:xxread/l10n/app_localizations.dart';
 import 'package:xxread/pages/shelf/shelf_page.dart';
@@ -49,6 +48,8 @@ void main() {
   testWidgets('render shelf preview', (tester) async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    // 预览脚本需要真实的 shared_preferences 空值，测试专用 API 的告警可忽略。
+    // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues(<String, Object>{});
     const channel = MethodChannel('plugins.flutter.io/path_provider');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
