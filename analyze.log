@@ -1,0 +1,6 @@
+Analyzing origo-x...                                            
+
+   info • The import of 'package:sqflite/sqflite.dart' is unnecessary because all of the used elements are also provided by the import of 'package:sqflite_common_ffi/sqflite_ffi.dart'. Try removing the import directive • tool/preview/reader_preview_test.dart:11:8 • unnecessary_import
+warning • The member 'setMockInitialValues' can only be used within 'package:shared_preferences/src/shared_preferences_legacy.dart' or a test • tool/preview/reader_preview_test.dart:52:23 • invalid_use_of_visible_for_testing_member
+
+2 issues found. (ran in 17.5s)
