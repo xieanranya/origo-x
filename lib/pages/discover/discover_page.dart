@@ -128,9 +128,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   Future<void> _openSources() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const BookSourcePage()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const BookSourcePage()));
     await _loadSources();
     if (_keyword.text.trim().isNotEmpty) await _search();
   }
@@ -281,7 +281,12 @@ class _DiscoverPageState extends State<DiscoverPage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
-          _chip(palette, label: '全部', selected: _activeSourceId == null, id: null),
+          _chip(
+            palette,
+            label: '全部',
+            selected: _activeSourceId == null,
+            id: null,
+          ),
           for (final source in _enabledSources)
             _chip(
               palette,
@@ -416,8 +421,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         if (!mounted || source == null) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute(
-            builder: (_) =>
-                SourceTocPage(source: source!, result: item),
+            builder: (_) => SourceTocPage(source: source!, result: item),
           ),
         );
       },
@@ -428,11 +432,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
             SizedBox(
               width: 46,
               height: 61,
-              child: CoverArt(
-                title: item.title,
-                radius: 8,
-                glyphSize: 20,
-              ),
+              child: CoverArt(title: item.title, radius: 8, glyphSize: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -497,7 +497,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppRadius.chip),
-                  border: Border.all(color: palette.pine.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: palette.pine.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Text(
                   '加入',
@@ -538,10 +540,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
       Text(
         title,
         textAlign: TextAlign.center,
-        style: AppText.sectionTitle.copyWith(
-          fontSize: 16,
-          color: palette.text,
-        ),
+        style: AppText.sectionTitle.copyWith(fontSize: 16, color: palette.text),
       ),
       const SizedBox(height: 9),
       Text(
@@ -562,10 +561,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(40, 0, 40, 60),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }

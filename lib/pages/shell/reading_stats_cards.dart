@@ -331,11 +331,7 @@ class _HeatmapCard extends StatelessWidget {
     } else if (cell.level <= 0) {
       color = base;
     } else {
-      color = Color.lerp(
-        base,
-        palette.pine,
-        0.25 + 0.75 * cell.level,
-      )!;
+      color = Color.lerp(base, palette.pine, 0.25 + 0.75 * cell.level)!;
     }
     return Container(
       width: 12,

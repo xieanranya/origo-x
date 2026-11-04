@@ -370,8 +370,7 @@ class _NativeReaderPageState extends State<NativeReaderPage>
   ReaderTapZones _tapZones = ReaderTapZones.defaults;
   bool _tapZoneEditorVisible = false;
   bool _tabletTwoPageEnabled = ReaderSettings.defaultTabletTwoPageEnabled;
-  bool _chapterTitlePageEnabled =
-      ReaderSettings.defaultChapterTitlePageEnabled;
+  bool _chapterTitlePageEnabled = ReaderSettings.defaultChapterTitlePageEnabled;
   bool _readerSettingsLoaded = false;
   bool _readerFontReady = true;
   bool _readerSystemUiApplied = false;
@@ -385,8 +384,7 @@ class _NativeReaderPageState extends State<NativeReaderPage>
   ReaderTopBarStyle _topBarStyle = ReaderTopBarStyle.reader;
   ReaderChapterProgressStyle _chapterProgressStyle =
       ReaderSettings.defaultChapterProgressStyle;
-  ReaderHeaderFooterSettings _headerFooter =
-      const ReaderHeaderFooterSettings();
+  ReaderHeaderFooterSettings _headerFooter = const ReaderHeaderFooterSettings();
   ReaderAloudController? _readerAloudController;
   bool _readerAloudActive = false;
   ReaderAloudHighlight? _readerAloudHighlight;

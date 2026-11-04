@@ -209,10 +209,7 @@ class _ProfilePageState extends State<ProfilePage> {
             color: palette.gold.withValues(alpha: 0.65),
           ),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: AppText.groupLabel.copyWith(color: palette.text3),
-          ),
+          Text(text, style: AppText.groupLabel.copyWith(color: palette.text3)),
         ],
       ),
     );
