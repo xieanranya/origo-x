@@ -218,10 +218,7 @@ class SourceSearchResult {
 
 /// 目录条目。
 class SourceChapter {
-  const SourceChapter({
-    required this.title,
-    required this.url,
-  });
+  const SourceChapter({required this.title, required this.url});
 
   final String title;
   final String url;

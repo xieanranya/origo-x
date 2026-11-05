@@ -380,10 +380,7 @@ class LocalLibraryPageState extends State<LocalLibraryPage> {
     final pdfsDir = Directory(p.join(documentsDir.path, 'pdfs'));
     await pdfsDir.create(recursive: true);
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final target = p.join(
-      pdfsDir.path,
-      '${stamp}_${p.basename(source.path)}',
-    );
+    final target = p.join(pdfsDir.path, '${stamp}_${p.basename(source.path)}');
     await source.copy(target);
     final book = Book(
       title: p.basenameWithoutExtension(source.path),
@@ -861,7 +858,9 @@ class LocalLibraryPageState extends State<LocalLibraryPage> {
       alpha: 0.07,
     );
     final subColor = isDark ? const Color(0xFF9A9A9A) : const Color(0xFF7A7A7E);
-    final faintColor = isDark ? const Color(0xFF6A6A6A) : const Color(0xFFADADB2);
+    final faintColor = isDark
+        ? const Color(0xFF6A6A6A)
+        : const Color(0xFFADADB2);
 
     Widget statusBadge(String label, Color fg, Color bg) {
       return Container(
@@ -1193,7 +1192,9 @@ class LocalLibraryPageState extends State<LocalLibraryPage> {
                   minHeight: 2,
                   backgroundColor: lineColor,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isRead ? subColor.withValues(alpha: 0.5) : colorScheme.primary,
+                    isRead
+                        ? subColor.withValues(alpha: 0.5)
+                        : colorScheme.primary,
                   ),
                 ),
               ),
@@ -1203,5 +1204,4 @@ class LocalLibraryPageState extends State<LocalLibraryPage> {
       },
     );
   }
-
 }

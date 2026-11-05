@@ -61,9 +61,7 @@ class AppPalette {
   Color get surface => dark ? const Color(0xFF262B26) : const Color(0xFFFFFDF8);
 
   /// 半透明浮层（悬浮底栏、胶囊顶栏）。
-  Color get float => dark
-      ? const Color(0xF2262B26)
-      : const Color(0xF2FFFDF8);
+  Color get float => dark ? const Color(0xF2262B26) : const Color(0xF2FFFDF8);
 
   /// 次级填充：搜索框、chip、进度条槽。
   Color get fill => dark ? const Color(0xFF2E342E) : const Color(0xFFEDE7D8);
@@ -78,14 +76,11 @@ class AppPalette {
   Color get text3 => dark ? const Color(0xFF7C8074) : const Color(0xFF97978A);
 
   /// 分隔线 / 细描边。
-  Color get line => dark
-      ? const Color(0x1FE6E2D4)
-      : const Color(0x1426261F);
+  Color get line => dark ? const Color(0x1FE6E2D4) : const Color(0x1426261F);
 
   /// 略重的描边（纸卡边）。
-  Color get hairline => dark
-      ? const Color(0x2EE6E2D4)
-      : const Color(0x1F26261F);
+  Color get hairline =>
+      dark ? const Color(0x2EE6E2D4) : const Color(0x1F26261F);
 
   /// 松绿：国风主色（不随用户强调色变，用于装饰与印章）。
   Color get pine => dark ? const Color(0xFF8FB8A3) : const Color(0xFF2F5D50);

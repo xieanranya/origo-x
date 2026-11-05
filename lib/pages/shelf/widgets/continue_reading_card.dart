@@ -79,10 +79,7 @@ class ContinueReadingCard extends StatelessWidget {
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: palette.text3,
-                          ),
+                          style: TextStyle(fontSize: 12, color: palette.text3),
                         ),
                         const SizedBox(height: 7),
                         ClipRRect(
