@@ -27,6 +27,9 @@ enum ReaderChapterProgressStyle {
 /// #FFFFFF. Light reader themes reverse it so 100 is #000000 and 0 is
 /// #FFFFFF, matching the direction users expect while reading on paper-like
 /// backgrounds.
+///
+/// 两端都留了对比度下限：极端值只应该「很淡」，不应该让字和纸面糊在一起
+/// （浅色主题的白字、深色主题的黑字都属于不可读状态）。
 Color readerTextColorForBrightness(int brightness, {required bool isDarkMode}) {
   final brightnessChannel =
       (brightness.clamp(
@@ -36,9 +39,19 @@ Color readerTextColorForBrightness(int brightness, {required bool isDarkMode}) {
               255 /
               ReaderSettings.maxTextBrightness)
           .round();
-  final channel = isDarkMode ? brightnessChannel : 255 - brightnessChannel;
+  final rawChannel = isDarkMode ? brightnessChannel : 255 - brightnessChannel;
+  // 浅色：最淡停在 #AAA（仍然可读）；深色：最暗停在 #5A，避免字陷进夜里。
+  final channel = isDarkMode
+      ? rawChannel.clamp(_darkTextChannelMin, 255)
+      : rawChannel.clamp(0, _lightTextChannelMax);
   return Color.fromARGB(255, channel, channel, channel);
 }
+
+/// 深色主题下正文的最暗通道（约 #5A5A5A）。
+const int _darkTextChannelMin = 90;
+
+/// 浅色主题下正文的最淡通道（约 #AAAAAA）。
+const int _lightTextChannelMax = 170;
 
 int effectiveReaderTextBrightness({
   required int brightness,

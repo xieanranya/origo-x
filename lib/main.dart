@@ -18,6 +18,8 @@ Future<void> main() async {
   // 必须在读取主题配色 / AppSettingsNotifier 之前完成：覆盖安装时把旧的
   // 字号、字重、主题、行高一次性迁移到精校基线。
   await ReaderDesignMigration.ensureApplied();
+  // 早期版本可能把「文字亮度」拉到不可读的极端，这里一次性纠正。
+  await ReaderDesignMigration.ensureLegibility();
   await ReaderThemes.loadSavedPalette();
   runApp(const LocalReaderApp());
 }

@@ -103,4 +103,28 @@ abstract final class ReaderDesignMigration {
     // 启动时调用的场合还没有缓存；「恢复精校默认」调用时缓存可能已是旧主题。
     ReaderThemes.invalidateSavedPaletteCache();
   }
+
+  /// 可读性修复（v1）。
+  ///
+  /// 「文字亮度」滑块在浅色主题下是反向语义（0 = 纯白字），拉到极端会让
+  /// 正文融进纸面、完全看不清。这里把已经不可读的旧值一次性拉回默认，
+  /// 只跑一次，之后用户再怎么调都尊重他的选择。
+  static const int legibilityVersion = 1;
+  static const String legibilityKey = 'reader_text_legibility_v1';
+
+  /// 低于该值时浅色主题的正文已经淡到难以阅读。
+  static const int minReadableBrightness = 40;
+
+  static Future<void> ensureLegibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getInt(legibilityKey) ?? 0) >= legibilityVersion) return;
+    final stored = prefs.getInt(ReaderSettingsStore.textBrightnessKey);
+    if (stored != null && stored < minReadableBrightness) {
+      await prefs.setInt(
+        ReaderSettingsStore.textBrightnessKey,
+        ReaderSettings.defaultTextBrightness,
+      );
+    }
+    await prefs.setInt(legibilityKey, legibilityVersion);
+  }
 }
