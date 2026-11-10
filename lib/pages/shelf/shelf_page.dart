@@ -889,9 +889,7 @@ class ShelfPageState extends State<ShelfPage> {
                       meta,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.bookAuthor.copyWith(
-                        color: palette.text3,
-                      ),
+                      style: AppText.bookAuthor.copyWith(color: palette.text3),
                     ),
                     const Spacer(),
                     Row(

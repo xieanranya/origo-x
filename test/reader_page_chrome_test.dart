@@ -80,9 +80,7 @@ void main() {
     expect(find.textContaining('50%'), findsNothing);
   });
 
-  testWidgets('footer follows the footer height from settings', (
-    tester,
-  ) async {
+  testWidgets('footer follows the footer height from settings', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

@@ -34,6 +34,7 @@ class ComicReaderPage extends StatefulWidget {
 class _ComicReaderPageState extends State<ComicReaderPage> {
   final BookDao _dao = BookDao();
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
+
   /// 阅读器统一滚动物理：iOS / 安卓同一手感。
   /// Flutter 默认物理按平台区分（iOS 弹性回弹、安卓夹紧），向上翻动到边界时
   /// 收尾方式不同、观感生硬；这里两端统一用 Bouncing —— 惯性衰减更线性柔和，
@@ -48,6 +49,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
+
   /// 全书统一的白边裁剪框（相对矩形）。逐页各裁各的会让相邻两页的缩放
   /// 基准不同，接缝处画面左右/上下错位，看起来「对不上」；统一成一个框
   /// 后所有页按同一基准缩放，接缝才严丝合缝。null = 不裁剪。
@@ -61,12 +63,15 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   ComicViewSettings _settings = const ComicViewSettings();
   bool _loading = true;
   bool _controlsVisible = true;
+
   /// 上次停留的菜单页签：关掉面板再打开要回到这一页，而不是回主菜单。
   ComicMenuTab _lastMenuTab = ComicMenuTab.menu;
   double _screenWidth = 0;
+
   /// 最近一次探测到的真实宽高比：同本漫画页面比例基本一致，可给未探测页兜底，
   /// 这样占位高度与真实高度一致，不会留下黑块。
   double _lastKnownAspect = 0;
+
   /// 正在拖动进度条时不响应滚动回调，避免两边互相抢导致来回跳。
   bool _draggingSlider = false;
   Timer? _saveDebounce;
@@ -98,17 +103,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _settings = await _settingsStore.load();
     final directory = Directory(widget.book.filePath);
     if (await directory.exists()) {
-      final files = directory
-          .listSync()
-          .whereType<File>()
-          .where((file) {
-            final extension = p
-                .extension(file.path)
-                .replaceFirst('.', '')
-                .toLowerCase();
-            return ComicArchiveService.imageExtensions.contains(extension);
-          })
-          .toList();
+      final files = directory.listSync().whereType<File>().where((file) {
+        final extension = p
+            .extension(file.path)
+            .replaceFirst('.', '')
+            .toLowerCase();
+        return ComicArchiveService.imageExtensions.contains(extension);
+      }).toList();
       files.sort(
         (a, b) => ComicArchiveService.naturalCompare(
           p.basename(a.path),
@@ -183,7 +184,6 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _spreads = _settings.blankFirstPage
         ? <ComicSpread>[const ComicSpread(logicalPage: 0), ...composed]
         : composed;
-
   }
 
   int _indexForLogicalPage(int logicalPage) {
@@ -329,9 +329,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       case ComicPageLayout.horizontalScroll:
         final width = MediaQuery.of(context).size.width;
         if (width <= 0) return;
-        index = (position.pixels / width)
-            .round()
-            .clamp(0, _spreads.length - 1);
+        index = (position.pixels / width).round().clamp(0, _spreads.length - 1);
       case ComicPageLayout.page:
       case ComicPageLayout.verticalScroll:
         return;
@@ -885,10 +883,10 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
                       thumbColor: Colors.white,
                     ),
                     child: Slider(
-                      value: index.toDouble().clamp(
-                        0.0,
-                        last > 0 ? last.toDouble() : 1.0,
-                      ).toDouble(),
+                      value: index
+                          .toDouble()
+                          .clamp(0.0, last > 0 ? last.toDouble() : 1.0)
+                          .toDouble(),
                       max: last > 1 ? last.toDouble() : 1.0,
                       onChangeStart: (_) => _draggingSlider = true,
                       // 拖动过程中只更新页码显示，不做实际跳转，避免与滚动回调互相抢。
