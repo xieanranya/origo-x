@@ -19,6 +19,7 @@ import '../../../models/book.dart';
 import '../../../services/books/book_dao.dart';
 import '../../../services/books/comic_archive_service.dart';
 import '../../../services/reader/comic_view_settings.dart';
+import '../../../services/reader/image_size_probe.dart';
 import 'comic_menu_panel.dart';
 
 class ComicReaderPage extends StatefulWidget {
@@ -33,6 +34,14 @@ class ComicReaderPage extends StatefulWidget {
 class _ComicReaderPageState extends State<ComicReaderPage> {
   final BookDao _dao = BookDao();
   final ComicViewSettingsStore _settingsStore = const ComicViewSettingsStore();
+  /// 阅读器统一滚动物理：iOS / 安卓同一手感。
+  /// Flutter 默认物理按平台区分（iOS 弹性回弹、安卓夹紧），向上翻动到边界时
+  /// 收尾方式不同、观感生硬；这里两端统一用 Bouncing —— 惯性衰减更线性柔和，
+  /// 边界回弹自然，滚动速率与节奏一致。
+  static const ScrollPhysics _readerScrollPhysics = BouncingScrollPhysics(
+    parent: AlwaysScrollableScrollPhysics(),
+  );
+
   final ScrollController _scrollController = ScrollController();
   final PageController _pageController = PageController();
   final ItemScrollController _itemScrollController = ItemScrollController();
@@ -108,15 +117,13 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       );
       _images = files.map((file) => file.path).toList(growable: false);
     }
-    // 先同步探测首屏这几页的真实比例（约 200ms），保证第一屏高度就是准的，
-    // 不会出现「占位比图片高」的黑块；其余页在滚动到时按需补。
+    // 首屏这几页的真实比例：只读文件头探测（毫秒级），保证第一屏高度就是准的，
+    // 不会出现「占位比图片高」的黑块。
     if (_images.isNotEmpty) {
       final start = widget.book.currentPage.clamp(0, _images.length - 1);
       final from = math.max(0, start - 2);
       final to = math.min(_images.length, start + 6);
-      final probed = await ComicPageComposer.probeAspects(
-        _images.sublist(from, to),
-      );
+      final probed = await probeAspectsByHeader(_images.sublist(from, to));
       if (probed.isNotEmpty) {
         _aspects = <String, double>{..._aspects, ...probed};
         _lastKnownAspect = probed.values.first;
@@ -127,7 +134,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     if (_settings.cropBorders && _images.isNotEmpty) {
       _sharedCrop = await _detectSharedCrop();
     }
-    if (_settings.splitDoublePage && _images.isNotEmpty) {
+    // 首帧渲染前就启动全书比例预探测：只读文件头，几百页也就几十毫秒，
+    // 用户滚到那一页之前比例早已就位，滚动途中不会再因补测触发重排（消除跳跃）。
+    if (_images.isNotEmpty) {
       unawaited(_probeAllAspects());
     }
     _rebuildSpreads();
@@ -140,18 +149,21 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     _restartAutoTurn();
   }
 
-  /// 后台串行探测比例，不阻塞界面；仅补足尚未记录的比例。
+  /// 后台补全全书比例：只读文件头（单页约 0.1~0.5ms），分块让出事件循环，
+  /// 保证探测本身不掉帧；解析失败的个别页留给 [_ensureAspect] 解码兜底。
   Future<void> _probeAllAspects() async {
-    const chunk = 24;
+    const chunk = 64;
     for (var start = 0; start < _images.length; start += chunk) {
       final end = math.min(start + chunk, _images.length);
       final slice = _images.sublist(start, end);
-      final probed = await ComicPageComposer.probeAspects(slice);
+      final probed = await probeAspectsByHeader(slice);
       if (!mounted) return;
       if (probed.isEmpty) continue;
       setState(() {
         _aspects = <String, double>{..._aspects, ...probed};
       });
+      // 让出一帧，避免连续 setState 挤占滚动帧预算。
+      await Future<void>.delayed(Duration.zero);
     }
   }
 
@@ -471,15 +483,20 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   /// 按需探测单页真实宽高比，供变高列表计算正确高度。
+  /// 走文件头解析（毫秒级，不占主线程解码）；解析不出的罕见格式才解码兜底。
   void _ensureAspect(String? path) {
     if (path == null) return;
     if (_aspects.containsKey(path) || _aspectPending.contains(path)) return;
     _aspectPending.add(path);
-    ComicPageComposer.probeAspects(<String>[path]).then((probed) {
+    probeAspectsByHeader(<String>[path]).then((probed) async {
+      var result = probed;
+      if (result.isEmpty) {
+        result = await ComicPageComposer.probeAspects(<String>[path]);
+      }
       _aspectPending.remove(path);
-      if (!mounted || probed.isEmpty) return;
+      if (!mounted || result.isEmpty) return;
       setState(() {
-        _aspects = <String, double>{..._aspects, ...probed};
+        _aspects = <String, double>{..._aspects, ...result};
       });
     });
   }
@@ -603,6 +620,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
       return ScrollablePositionedList.builder(
         itemScrollController: _itemScrollController,
         itemPositionsListener: _itemPositionsListener,
+        physics: _readerScrollPhysics,
         itemCount: _spreads.length,
         itemBuilder: (context, index) {
           final height = _heightOf(index);
@@ -624,6 +642,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     }
     return ListView.builder(
       controller: _scrollController,
+      physics: _readerScrollPhysics,
       itemCount: _spreads.length,
       itemExtent: viewport,
       itemBuilder: (context, index) => _buildSpread(index),
@@ -656,6 +675,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     final width = MediaQuery.of(context).size.width;
     return ListView.builder(
       controller: _scrollController,
+      physics: _readerScrollPhysics,
       scrollDirection: Axis.horizontal,
       reverse: _settings.direction.reversed,
       itemCount: _spreads.length,
@@ -1060,7 +1080,8 @@ class _ComicFramePainter extends CustomPainter {
 
 /// 漫画页面图片缓存：保留最近若干张已解码图片，避免滚动时反复解码。
 class _ComicImageCache {
-  static const int _maxEntries = 8;
+  // 缓存略放大：向上翻回已看过的页时不必重新解码，接缝处不会闪黑。
+  static const int _maxEntries = 24;
 
   final Map<String, ui.Image> _ready = <String, ui.Image>{};
   final Set<String> _pending = <String>{};
