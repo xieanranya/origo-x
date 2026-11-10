@@ -120,7 +120,8 @@ jobs:
     # macOS runner 排队超时会被 cancelled（表现为整个 run 失败），故允许失败，
     # 不拖累安卓出包；被取消时错峰重跑即可补上 IPA。
     name: Build iOS IPA
-    runs-on: macos-15
+    # arm64 macOS 池经常排队分配不到（not acquired by Runner），改用 Intel 池。
+    runs-on: macos-15-intel
     needs: analyze
     continue-on-error: true
     steps:
