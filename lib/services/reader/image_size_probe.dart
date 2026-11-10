@@ -49,7 +49,10 @@ Future<double?> probeAspectByHeader(String path) async {
 double? _parseAspect(Uint8List bytes) {
   if (bytes.length < 12) return null;
   // PNG：89 50 4E 47 0D 0A 1A 0A，IHDR 紧随其后，宽高为大端 32 位。
-  if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+  if (bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47) {
     if (bytes.length < 24) return null;
     final width = _be32(bytes, 16);
     final height = _be32(bytes, 20);
@@ -101,13 +104,16 @@ double? _parseJpeg(Uint8List bytes) {
       continue;
     }
     // 无长度字段的标记。
-    if (marker == 0xD8 || marker == 0xD9 || (marker >= 0xD0 && marker <= 0xD7)) {
+    if (marker == 0xD8 ||
+        marker == 0xD9 ||
+        (marker >= 0xD0 && marker <= 0xD7)) {
       offset += 2;
       continue;
     }
     final length = _be16(bytes, offset + 2);
     if (length < 2) return null;
-    final isSof = marker >= 0xC0 &&
+    final isSof =
+        marker >= 0xC0 &&
         marker <= 0xCF &&
         marker != 0xC4 &&
         marker != 0xC8 &&
@@ -137,7 +143,8 @@ double? _parseWebp(Uint8List bytes) {
     case 'VP8L':
       // 偏移 21 起 32 位：14 位 (宽-1) + 14 位 (高-1)。
       if (bytes.length < 25) return null;
-      final bits = bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
+      final bits =
+          bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
       final width = (bits & 0x3FFF) + 1;
       final height = ((bits >> 14) & 0x3FFF) + 1;
       return _ratio(width, height);
